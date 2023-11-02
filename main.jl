@@ -11,6 +11,7 @@ using .GuiMod
 
 # using Pkg
 # Pkg.add(name="ImPlot", rev="main")
+# Pkg.add(name="LibCImGui", version="1.82.2")
 
 tableParser = Dict{String, String}(
     "units" => "Единицы измерения",
@@ -54,24 +55,47 @@ state = GuiMod.PlotState(
     [0],
     [0],
     [0],
-    GuiMod.SignalInfo(1,1,1,1,1,1),
-    [GuiMod.ComplexParameters(
-        GuiMod.CardioCycle(100,1,1,1,200),
-        GuiMod.EcgAnalysisParameters(0.0,0.0,0.0,0.0,0.0,GuiMod.AlphaAngles(0.0,0.0,0.0),0.0,0.0),
+    GuiMod.HeaderInfo("1","1",1,1.,["1"],1, 1),
+    [GuiMod.Complexes(
+        GuiMod.GlobalBounds(100,1,1,1,200),
+        GuiMod.GlobalParams(
+            0,
+            0,
+            0,
+            0,
+            
+            "0",
+            0,
+            0,
+            0,
+            0,
+            0,
+
+            "0",
+            0,
+            "0",
+            0,
+
+            0,
+            0,
+            0,
+            0,
+            "0",
+            0),
         GuiMod.ChannelBounds([0.0],[0.0],[0.0],[0.0],[0.0],[0.0]),
-        GuiMod.ChannelParameters([0.0],[0.0],[0.0],[0.0],[0.0],[0.0],[0.0],[0.0],[0.0]))],
+        GuiMod.ChannelParams([0],[0],[0], ["0.0"], [0],[0],[0],[0],[0],[0],[0],[0],[0]))],
     (min = 1, max = 9600),
     (min = -12*2000, max = 1))
 const USERDATA = Dict{String, Any}(
     "AvailableDataBases" => [""],
-    "AvailableRecords" => [""],
+    "AvailableRecords" => [GuiMod.HeaderInfo()],
     "ActiveMark" => [""],
     "ActiveComplexInd" => 1,
     "ActiveChannel" => [""],
     "ActiveCursor" =>[""],
     "ActiveFilters" => [false, false],
     "Record" => [""],
-    "ActiveSettings" => GuiMod.AlgorithmsSettings(),
+    "ActiveSettings" => GuiMod.Settings(),
     "Cursor" => GuiMod.Cursor(100,100),
     "flag" => CImGui.ImGuiCond_Once
 )
@@ -88,8 +112,8 @@ set_uistate(key::String, value) = STORAGE[CImGui.GetID(key)] = value
 
 function find_chosen_complex(state :: GuiMod.PlotState, cursor::GuiMod.Cursor)
     for i in eachindex(state.processRes)
-        ibeg = get_begin_end_marks(state.processRes[i].global_bounds, true)
-        iend = get_begin_end_marks(state.processRes[i].global_bounds, false)
+        ibeg = get_begin_end_marks(state.processRes[i].channel_params, true)
+        iend = get_begin_end_marks(state.processRes[i].channel_params, false)
         if !isdisjoint(cursor.leftBorder:cursor.rightBorder, ibeg:iend)
             return i
         end
@@ -120,12 +144,13 @@ function select_base(selected_db_name::String, dataBases::Vector{String})
 
 end
 
-function select_records(selected_record_name, records::Vector{String})
+function select_records(selected_record_name, records::Vector{GuiMod.HeaderInfo})
     
     CImGui.Text("Записи:")
     
     for record in records
         
+        record = record.filename
         label = record
         
         if CImGui.Selectable(label, selected_record_name == record)
@@ -145,7 +170,7 @@ function select_records(selected_record_name, records::Vector{String})
     end
 end
 
-function show_stats(wigit_name::String, info::GuiMod.SignalInfo)
+function show_stats(wigit_name::String, info::GuiMod.HeaderInfo)
 
     CImGui.Text("Stats:")
     CImGui.BeginTable(wigit_name,2, tableFlags)
@@ -175,9 +200,9 @@ function parse_process_data(data :: Any)
     end 
 end
 
-function show_parameters(wigitName :: String, complexes :: Vector{GuiMod.ComplexParameters}, applySelection::Bool)
+function show_parameters(wigitName :: String, complexes :: Vector{GuiMod.Complexes}, applySelection::Bool)
     
-    params = complexes[1].global_params
+    params = complexes[1].bounds
 
     # Параметры в строчку
     propNames = propertynames(params)
@@ -189,11 +214,11 @@ function show_parameters(wigitName :: String, complexes :: Vector{GuiMod.Complex
         if header == :alpha
             alphaEng = getfield(params, header)
             for i in propertynames(alphaEng)
-                CImGui.Text(tableParser[String(i)]); CImGui.NextColumn()
+                # CImGui.Text(tableParser[String(i)]); CImGui.NextColumn()
             end
             continue
         end
-        CImGui.Text(tableParser[String(header)]); CImGui.NextColumn()
+        # CImGui.Text(tableParser[String(header)]); CImGui.NextColumn()
     end
     CImGui.Separator()
 
@@ -204,7 +229,7 @@ function show_parameters(wigitName :: String, complexes :: Vector{GuiMod.Complex
         end
         CImGui.NextColumn()
 
-        params = complexes[complexInd].global_params
+        params = complexes[complexInd].bounds
         for name in propNames
             if name == :alpha
                 alphaEng = getfield(params, name)
@@ -225,7 +250,7 @@ function show_parameters(wigitName :: String, complexes :: Vector{GuiMod.Complex
     CImGui.Separator()
 end
 
-function get_begin_end_marks(cycle::GuiMod.CardioCycle, min::Bool)
+function get_begin_end_marks(cycle::GuiMod.ChannelParams, min::Bool)
     propertys = propertynames(cycle)
     arr = []
     for property in propertys
@@ -244,7 +269,7 @@ function get_begin_end_marks(cycle::GuiMod.CardioCycle, min::Bool)
     end
 end
 
-function show_shifts(propertys::Vector{Symbol}, complexes :: Vector{GuiMod.ComplexParameters}, applySelection::Bool)
+function show_shifts(propertys::Vector{Symbol}, complexes :: Vector{GuiMod.Complexes}, applySelection::Bool)
 
     CImGui.Columns(13,"#shifts")
     CImGui.Separator()
@@ -370,14 +395,14 @@ function Viewer(state::GuiMod.PlotState)
 
         CImGui.Text("Настройки:")
         @cstatic( 
-            offset = Cfloat(USERDATA["ActiveSettings"].QRS_sensitivity),
+            offset = Cfloat(USERDATA["ActiveSettings"].QRSsensitivity),
             spikes = USERDATA["ActiveSettings"].isspikes,
             isoline = USERDATA["ActiveFilters"][1],
             fiftyHz = USERDATA["ActiveFilters"][2],
             begin
             if @c CImGui.SliderFloat("Настройка чувствительности",&offset, 0, 1)
-                USERDATA["ActiveSettings"].QRS_sensitivity = offset
-                @info USERDATA["ActiveSettings"].QRS_sensitivity
+                USERDATA["ActiveSettings"].QRSsensitivity = offset
+                @info USERDATA["ActiveSettings"].QRSsensitivity
             end
             CImGui.SameLine()
             @c CImGui.Checkbox("IsSpikes", &spikes)
@@ -416,10 +441,11 @@ function Viewer(state::GuiMod.PlotState)
                     k += 2000
                 end
 
-                for name in propertynames(state.processRes[1].global_bounds)
-                    bound = getfield(state, name)
-                    ImPlot.PlotVLines("$name", trunc.(Int,bound), length(bound))
-                end
+                #Somehow need to fix this
+                # for name in propertynames(state.processRes[1].bounds)
+                #     bound = getfield(state, name)
+                #     ImPlot.PlotVLines("$name", trunc.(Int,bound), length(bound))
+                # end
 
                 for index in eachindex(state.QRS_onset)
                     k = 0
@@ -475,7 +501,7 @@ function Viewer(state::GuiMod.PlotState)
                     end
 
 
-                    cycle = state.processRes[chosenComplexInd].global_bounds
+                    cycle = state.processRes[chosenComplexInd].params
                     fields = propertynames(cycle) 
                     
                     k = 0
