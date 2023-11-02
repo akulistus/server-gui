@@ -7,6 +7,7 @@ const FILTERS = "isoline,50Hz"
 const PORT = "8089"
 # const HOST = "127.0.0.1"
 const HOST = "0.0.0.0"
+const CHANNELS = "I,II,III,aVR,aVL,aVF,V1,V2,V3,V4,V5,V6"
 
 
 function get_db_list()
@@ -35,7 +36,7 @@ end
 #     return json_to_signal_info(str)
 # end
 
-function get_signal(RECORDNAME :: String, from::Int, to::Int, filter::String, channel::String)
+function get_signal(RECORDNAME::String, from::Int, to::Int, filter::String = FILTERS, channel::String = CHANNELS)
     query = Dict([("from", from), ("to", to), ("filter", filter), ("channel", channel)])
     r = HTTP.get("http://$(HOST):$(PORT)/$user/records/$RECORDNAME/signals"; query = query)
     str = String(r.body)
@@ -47,6 +48,7 @@ end
 function get_result(RECORDNAME :: String)
     r = HTTP.get("http://$(HOST):$(PORT)/$user/records/$RECORDNAME/result")
     str = String(r.body)
+    print(str)
     return JSON3.read(str, GuiMod.Result)
 end
 
@@ -56,11 +58,11 @@ end
 #     return JSON3.read(str,Dict{String, Any})
 # end
 
-function process_ecg(recordName)
-    r = HTTP.get("http://$HOST:$PORT/$user/records/$recordName/process_ecg")
-    str = String(r.body)
-    return json_to_parameters_vec(str)
-end
+# function process_ecg(recordName)
+#     r = HTTP.get("http://$HOST:$PORT/$user/records/$recordName/process_ecg")
+#     str = String(r.body)
+#     return json_to_parameters_vec(str)
+# end
 
 function save_changes(cycle, recordName)
     json_to_shift = JSON3.write(cycle)
@@ -94,5 +96,5 @@ end
 
 function get_settings(recordName::String)
     r = HTTP.get("http://$(HOST):$(PORT)/$user/records/$recordName/settings")
-    return JSON3.read(r.body, AlgorithmsSettings)
+    return JSON3.read(r.body, Settings)
 end

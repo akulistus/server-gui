@@ -7,16 +7,16 @@ mutable struct PlotState
     QRS_end::Any
     T_end::Any
     recordInfo :: HeaderInfo
-    processRes :: Vector{Complexes}
+    processRes :: Result
     xlim::NamedTuple{(:min, :max), NTuple{2, Float32}}
     ylim::NamedTuple{(:min, :max), NTuple{2, Float32}}
 end
 
 function vector_of_structs_to_struct_vector(state::PlotState)
-    vector_of_structs = state.processRes
-    fieldNames = propertynames(vector_of_structs[1].global_bounds)
+    vector_of_structs = state.processRes.complexes
+    fieldNames = propertynames(vector_of_structs[1].params)
     for name in fieldNames
-        setfield!(state, name, [getfield(x.global_bounds, name) for x in vector_of_structs])
+        setfield!(state, name, [getfield(x.params, name) for x in vector_of_structs])
     end
 end
 

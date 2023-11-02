@@ -10,10 +10,10 @@ mutable struct HeaderInfo
     monitorType :: Union{Int, Nothing}
     stimuls :: Union{String, Nothing}
 
-    function HeaderInfo(filename::String = "0", timestart::String = "0",
-        length::Int = 0, freq::Float64 = 0.0, channels::Vector{String} = ["0"],)
-        new(filename, timestart, length, freq, channels, nothing, nothing, nothing)
-    end
+    # function HeaderInfo(filename::String = "0", timestart::String = "0",
+    #     length::Int = 0, freq::Float64 = 0.0, channels::Vector{String} = ["0"],)
+    #     new(filename, timestart, length, freq, channels, nothing, nothing, nothing)
+    # end
 end
 JSON3.StructTypes(::Type{HeaderInfo}) = JSON3.Mutable()
 
@@ -28,12 +28,14 @@ end
 StructTypes.StructTypes(::Type{Settings}) = StructTypes.Struct()
 
 mutable struct ChannelBounds
-    Q_onset::Vector{Int64}
-    Q_end::Vector{Int64}
-    R_onset::Vector{Int64}
-    R_end::Vector{Int64}
-    S_onset::Vector{Int64}
-    S_end::Vector{Int64}
+    Q_onset::Vector{Union{Int, Nothing}}
+    Q_end::Vector{Union{Int, Nothing}}
+    R1_onset::Vector{Union{Int, Nothing}}
+    R1_end::Vector{Union{Int, Nothing}}
+    R2_onset::Vector{Union{Int, Nothing}}
+    R2_end::Vector{Union{Int, Nothing}}
+    S_onset::Vector{Union{Int, Nothing}}
+    S_end::Vector{Union{Int, Nothing}}
 end
 
 mutable struct GlobalBounds{T <: Union{Int64, Nothing}}
@@ -45,45 +47,49 @@ mutable struct GlobalBounds{T <: Union{Int64, Nothing}}
 end
 
 mutable struct ChannelParams
-    ST40 :: Vector{Int}
-    ST80 :: Vector{Int}
-    S_amp :: Vector{Int}
-    name :: Vector{String}
-    P_amp :: Vector{Int}
-    Q_dur :: Vector{Int}
-    T_amp :: Vector{Int}
-    R_amp :: Vector{Int}
-    Q_amp :: Vector{Int}
-    ST20 :: Vector{Int}
-    ST60 :: Vector{Int}
-    R_dur :: Vector{Int}
-    S_dur :: Vector{Int}
+    P_amp :: Vector{Union{Int, Nothing}}
+    Q_amp :: Vector{Union{Int, Nothing}}
+    R_amp :: Vector{Union{Int, Nothing}}
+    S_amp :: Vector{Union{Int, Nothing}}
+    T_amp :: Vector{Union{Int, Nothing}}
+
+    ST20 :: Vector{Union{Int, Nothing}}
+    ST40 :: Vector{Union{Int, Nothing}}
+    ST60 :: Vector{Union{Int, Nothing}}
+    ST80 :: Vector{Union{Int, Nothing}}
+
+    Q_dur :: Vector{Union{Int, Nothing}}
+    R_dur :: Vector{Union{Int, Nothing}}
+    S_dur :: Vector{Union{Int, Nothing}}
+
+    name :: Vector{Union{String, Nothing}}
 end
 
 mutable struct GlobalParams
-    P_dur :: Int
-    PQ_dur :: Int
-    QRS_dur :: Int
-    QT_dur :: Int
+    P_dur :: Union{Int, Nothing}
+    PQ_dur :: Union{Int, Nothing}
+    QRS_dur :: Union{Int, Nothing}
+    QT_dur :: Union{Int, Nothing}
 
-    QT_type :: String
-    QTc_Framingham :: Int
-    QTc_MortaraVeritas :: Int
-    QTc_Bazett :: Int
-    QTc_Fridericia :: Int
-    QTc_Hodges :: Int
+    RR :: Union{Int, Nothing}
+    P_angle :: Union{Int, Nothing}
+    QRS_angle :: Union{Int, Nothing}
+    T_angle :: Union{Int, Nothing}
+    trance_zone :: Union{String, Nothing}
     
-    lead_depression :: String
-    max_depression :: Int
-    lead_elevation :: String
-    max_elevatoin :: Int
+    QTc_Fridericia :: Union{Int, Nothing}
+    QTc_Bazett :: Union{Int, Nothing}
+    QTc_Hodges :: Union{Int, Nothing}
+    QTc_Framingham :: Union{Int, Nothing}
+    QTc_MortaraVeritas :: Union{Int, Nothing}
     
-    RR :: Int
-    P_angle :: Int
-    T_angle :: Int
-    QRS_angle :: Int
-    trance_zone :: String
-    SokolowLyon_ind :: Int
+    SokolowLyon_ind :: Union{Int, Nothing}
+
+    max_depression :: Union{Int, Nothing}
+    lead_depression :: Union{String, Nothing}
+    max_elevatoin :: Union{Int, Nothing}
+    lead_elevation :: Union{String, Nothing}
+    
 end
 
 mutable struct Complexes

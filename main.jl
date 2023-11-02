@@ -55,40 +55,47 @@ state = GuiMod.PlotState(
     [0],
     [0],
     [0],
-    GuiMod.HeaderInfo("1","1",1,1.,["1"],1, 1),
-    [GuiMod.Complexes(
-        GuiMod.GlobalBounds(100,1,1,1,200),
-        GuiMod.GlobalParams(
-            0,
-            0,
-            0,
-            0,
-            
-            "0",
-            0,
-            0,
-            0,
-            0,
-            0,
+    GuiMod.HeaderInfo("1","1",1,1.,["1"],1, 1, "1"),
+    GuiMod.Result(
+        GuiMod.Settings(),
+        [GuiMod.Complexes(
+            GuiMod.GlobalBounds(100,1,1,1,200),
+            GuiMod.GlobalParams(
+                0,
+                0,
+                0,
+                0,
+                
+                0,
+                0,
+                0,
+                0,
+                "0",
 
-            "0",
-            0,
-            "0",
-            0,
+                0,
+                0,
+                0,
+                0,
+                0,
 
+                0,
+
+                0,
+                "0",
+                0,
+                "0"),
+            GuiMod.ChannelBounds([0.0],[0.0],[0.0],[0.0],[0.0],[0.0],[0.0],[0.0]),
+            GuiMod.ChannelParams([0],[0],[0],[0],[0], [0],[0],[0],[0], [0],[0],[0], ["0.0"]))],
             0,
-            0,
-            0,
-            0,
-            "0",
-            0),
-        GuiMod.ChannelBounds([0.0],[0.0],[0.0],[0.0],[0.0],[0.0]),
-        GuiMod.ChannelParams([0],[0],[0], ["0.0"], [0],[0],[0],[0],[0],[0],[0],[0],[0]))],
+            GuiMod.HeaderInfo("1","1",1,1.,["1"],1, 1, "1"),
+            GuiMod.ChunkParams(0,0,0,0),
+            [0]
+            ),
     (min = 1, max = 9600),
     (min = -12*2000, max = 1))
 const USERDATA = Dict{String, Any}(
     "AvailableDataBases" => [""],
-    "AvailableRecords" => [GuiMod.HeaderInfo()],
+    "AvailableRecords" => [GuiMod.HeaderInfo("1","1",1,1.,["1"],1, 1, "1")],
     "ActiveMark" => [""],
     "ActiveComplexInd" => 1,
     "ActiveChannel" => [""],
@@ -159,8 +166,8 @@ function select_records(selected_record_name, records::Vector{GuiMod.HeaderInfo}
             USERDATA["Record"] = record
             USERDATA["ActiveComplexInd"] = 1
             USERDATA["ActiveSettings"] = [false, false]
-            state.signal = GuiMod.get_ecg(record,1,10_000_000,"")
-            state.processRes = GuiMod.process_ecg(record)
+            state.signal = GuiMod.get_signal(record, 1, 5000)
+            state.processRes = GuiMod.get_result(record)
             USERDATA["ActiveSettings"] = GuiMod.get_settings(record)
             state.numChn = length(keys(state.signal))
             GuiMod.vector_of_structs_to_struct_vector(state)
@@ -450,7 +457,7 @@ function Viewer(state::GuiMod.PlotState)
                 for index in eachindex(state.QRS_onset)
                     k = 0
                     for ch in eachindex(ecg)
-                        ImPlot.PlotText("$index", state.QRS_onset[index], -k)
+                        # ImPlot.PlotText("$index", state.QRS_onset[index], -k)
                         k += 2000
                     end
                 end
@@ -486,22 +493,22 @@ function Viewer(state::GuiMod.PlotState)
                 
                 if !isnothing(chosenComplexInd)
 
-                    chBounds = state.processRes[chosenComplexInd].channel_bounds
+                    chBounds = state.processRes.complexes[chosenComplexInd].channel_bounds
                     
                     if chosenComplexInd == 1
                         ibeg = 1
                     else
-                        ibeg = get_begin_end_marks(state.processRes[chosenComplexInd - 1].global_bounds, false)
+                        ibeg = get_begin_end_marks(state.processRes.complexes[chosenComplexInd - 1].channel_params, false)
                     end
 
-                    if chosenComplexInd == length(state.processRes)
+                    if chosenComplexInd == length(state.processRes.complexes)
                         iend = lastindex(ecg[1])
                     else
-                        iend = get_begin_end_marks(state.processRes[chosenComplexInd + 1].global_bounds, true)
+                        iend = get_begin_end_marks(state.processRes.complexes[chosenComplexInd + 1].channel_params, true)
                     end
 
 
-                    cycle = state.processRes[chosenComplexInd].params
+                    cycle = state.processRes.complexes[chosenComplexInd].channel_params
                     fields = propertynames(cycle) 
                     
                     k = 0
@@ -515,7 +522,7 @@ function Viewer(state::GuiMod.PlotState)
 
                     for field in fields
                         bound = getfield(cycle, field)
-                        ImPlot.PlotVLines("$field", Ref(trunc.(Int,bound) .- (ibeg)), length(bound))
+                        # ImPlot.PlotVLines("$field", Ref(trunc.(Int,bound) .- (ibeg)), length(bound))
                     end
 
                     # props = propertynames(chBounds)
@@ -602,21 +609,21 @@ end
 
 function ParamsTable(state::GuiMod.PlotState)
     if CImGui.Begin("Параметры")
-        show_parameters("#algRes", state.processRes, true)
+        show_parameters("#algRes", state.processRes.complexes, true)
         CImGui.End()
     end
 end
 
 function ShiftsTable(state::GuiMod.PlotState)
     if CImGui.Begin("Смещения")
-        show_shifts([:ST20,:ST40,:ST60,:ST80], state.processRes, true)
+        show_shifts([:ST20,:ST40,:ST60,:ST80], state.processRes.complexes, true)
         CImGui.End()
     end
 end
 
 function AmpTable(state::GuiMod.PlotState)
     if CImGui.Begin("Амплитуды")
-        show_shifts([:P_amp,:Q_amp,:R_amp,:S_amp,:T_amp], state.processRes, true)
+        show_shifts([:P_amp,:Q_amp,:R_amp,:S_amp,:T_amp], state.processRes.complexes, true)
         CImGui.End()
     end
 end
@@ -626,7 +633,7 @@ function RepresentatieveComplexParamsTable(state::GuiMod.PlotState, complexInd :
     if CImGui.Begin("Параметры комплекса")
         
         if !isnothing(complexInd)
-            complex = state.processRes[complexInd]
+            complex = state.processRes.complexes[complexInd]
             show_parameters("#SingleParamTable", [complex], false)
             CImGui.Text("Смещения:")
             show_shifts([:ST20,:ST40,:ST60,:ST80], [complex], false)
