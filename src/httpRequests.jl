@@ -64,7 +64,6 @@ end
 function save_changes(cycle, recordName)
     json_to_shift = JSON3.write(cycle)
     HTTP.post("http://$(HOST):$(PORT)/$user/records/$recordName/complexes", [("Content-Type" => "application/json")], json_to_shift, verbose=3)
-    r =  HTTP.get("http://$(HOST):$(PORT)/$user/records/$recordName/complexes")
 end
 
 function get_complexes(recordName)

@@ -75,7 +75,7 @@ mutable struct GlobalParams
     P_angle :: Union{Int, Nothing}
     QRS_angle :: Union{Int, Nothing}
     T_angle :: Union{Int, Nothing}
-    trance_zone :: Union{String, Nothing}
+    trans_zone :: Union{String, Nothing}
     
     QTc_Fridericia :: Union{Int, Nothing}
     QTc_Bazett :: Union{Int, Nothing}
@@ -87,7 +87,7 @@ mutable struct GlobalParams
 
     max_depression :: Union{Int, Nothing}
     lead_depression :: Union{String, Nothing}
-    max_elevatoin :: Union{Int, Nothing}
+    max_elevation :: Union{Int, Nothing}
     lead_elevation :: Union{String, Nothing}
     
 end

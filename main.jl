@@ -13,29 +13,7 @@ using .GuiMod
 # Pkg.add(name="ImPlot", rev="main")
 # Pkg.add(name="LibCImGui", version="1.82.2")
 
-tableParser = Dict{String, String}(
-    "units" => "Единицы измерения",
-    "names" => "Отведения",
-    "fs" => "Частота дискретизации",
-    "lsbs" => "Единицы измерения",
-    "timestart" => "Время начала записи",
-    "iend" => "Конечный индекс записи",
-    "type" => "Тип",
-    "num_ch" => "Количестов каналов записи",
-    "ibeg" => "Начальный индекс записи",
-    "QTc" => "Корригированный QT",
-    "alpha" => "Альфа углы",
-    "zone" => "Переходная зона",
-    "SokolovIndex" => "Индекс Соколова",
-    "STShifts" => "ST-смещения",
-    "qrs" => "Альфа углы - QRS",
-    "p" => "Альфа углы - P",
-    "t" => "Альфа углы - T",
-    "P_dur" => "Длительность P",
-    "PQ_dur" => "Длительность PQ",
-    "QRS_dur" => "Длительность QRS",
-    "QT_dur" => "Длительность QT"
-)
+tableParser = JSON3.read("src/tableHeader.json", Dict)
 
 ecgChannelsNames = ["I", "II", "III", "aVR", "aVL", "aVF", "V1", "V2", "V3", "V4", "V5", "V6"]
 
@@ -84,7 +62,7 @@ state = GuiMod.PlotState(
                 0,
                 "0"),
             GuiMod.GlobalBounds(100,1,1,1,200),
-            GuiMod.ChannelBounds([0.0],[0.0],[0.0],[0.0],[0.0],[0.0],[0.0],[0.0]),
+            GuiMod.ChannelBounds([1],[1],[1],[1],[1],[1],[1],[1]),
             GuiMod.ChannelParams([0],[0],[0],[0],[0], [0],[0],[0],[0], [0],[0],[0], ["0.0"]))],
             0,
             GuiMod.HeaderInfo("1","1",1,1.,["1"],1, 1, "1"),
@@ -221,11 +199,11 @@ function show_parameters(wigitName :: String, complexes :: Vector{GuiMod.Complex
         if header == :alpha
             alphaEng = getfield(params, header)
             for i in propertynames(alphaEng)
-                # CImGui.Text(tableParser[String(i)]); CImGui.NextColumn()
+                CImGui.Text(tableParser[String(i)]); CImGui.NextColumn()
             end
             continue
         end
-        # CImGui.Text(tableParser[String(header)]); CImGui.NextColumn()
+        CImGui.Text(tableParser[String(header)]); CImGui.NextColumn()
     end
     CImGui.Separator()
 
@@ -270,7 +248,6 @@ function get_begin_end_marks(cycle::GuiMod.GlobalBounds, min::Bool)
     if isempty(arr)
         return 1
     end
-    sort!(arr)
 
     if min
         return minimum(arr)
@@ -534,28 +511,32 @@ function Viewer(state::GuiMod.PlotState)
                         ImPlot.PlotVLines("$field", Ref(trunc.(Int,bound) .- (ibeg)), length(bound))
                     end
 
-                    # props = propertynames(chBounds)
-                    # for prop in props
-                    #     field = getfield(chBounds,prop)
-                    #     k = 0
-                    #     arr = []
-                    #     for ind in field
-                    #         if isa(ind, Nothing)
-                    #             continue
-                    #         end
-                    #         append!(arr, trunc(Int,ind) - ibeg)
-                    #         k += 2000
-                    #     end
-                    #     # ImPlot.PlotScatter(String(prop), arr, -k, 100)
-                    # end
+                    props = propertynames(chBounds)
+                    test = collect(range(0; length = length(ecg), step = -2000))
+                    for prop in props
+                        field = getfield(chBounds,prop)
+                        arrX = Vector{Int}()
+                        arrY = Vector{Float64}()
+                        k = 0
+                        for ind in eachindex(field)
+                            item = field[ind]
+                            if isa(item, Nothing)
+                                continue
+                            end
+                            append!(arrX, trunc(Int,item) - ibeg)
+                            append!(arrY, ecg[ind][item] - k)
+                            k += 2000
+                        end
+                        ImPlot.PlotScatter(arrX, arrY; label_id = String(prop))
+                    end
 
                     if ImPlot.IsPlotHovered() && CImGui.IsMouseClicked(0)
                         USERDATA["flag"] = CImGui.ImGuiCond_Always
-                        # USERDATA["ActiveMark"] = GuiMod.find_mark(cycle, ibeg)
+                        USERDATA["ActiveMark"] = GuiMod.find_mark(cycle, ibeg)
                     elseif ImPlot.IsPlotHovered() && CImGui.IsMouseDown(0)
                         USERDATA["flag"] = CImGui.ImGuiCond_Always
                         actMark = USERDATA["ActiveMark"]
-                        # GuiMod.move_mark(cycle, actMark, ibeg, lastindex(ecg[1]))
+                        GuiMod.move_mark(cycle, actMark, ibeg, lastindex(ecg[1]))
                         GuiMod.vector_of_structs_to_struct_vector(state)
                     else
                         USERDATA["flag"] = CImGui.ImGuiCond_Once
@@ -595,8 +576,8 @@ function Viewer(state::GuiMod.PlotState)
 
             if CImGui.Button("Применить изменения")
                 if !isequal(USERDATA["Record"],[""])
-                    GuiMod.save_changes(state.processRes.complexes[chosenComplexInd].bounds, USERDATA["Record"])
-                    state.processRes = GuiMod.get_complexes(USERDATA["Record"])
+                    # GuiMod.save_changes(state.processRes.complexes[chosenComplexInd].bounds, USERDATA["Record"])
+                    # state.processRes.complexes = GuiMod.get_complexes(USERDATA["Record"])
                 end
 
             end
