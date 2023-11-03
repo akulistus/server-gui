@@ -235,6 +235,7 @@ function show_parameters(wigitName :: String, complexes :: Vector{GuiMod.Complex
     CImGui.Separator()
 end
 
+# need to check if ibeg is > then the smallest value of cycle somehow...
 function get_begin_end_marks(cycle::GuiMod.GlobalBounds, min::Bool)
     propertys = propertynames(cycle)
     arr = []
@@ -512,7 +513,6 @@ function Viewer(state::GuiMod.PlotState)
                     end
 
                     props = propertynames(chBounds)
-                    test = collect(range(0; length = length(ecg), step = -2000))
                     for prop in props
                         field = getfield(chBounds,prop)
                         arrX = Vector{Int}()

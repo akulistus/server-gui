@@ -34,10 +34,6 @@ function move_coursor()
     cursor = trunc(Int, xpos)
 end
 
-function find_complex()
-    
-end
-
 
 function find_mark(cycle :: GlobalBounds, delta :: Int)
     mousePosition = ImPlot.GetPlotMousePos()
@@ -45,26 +41,26 @@ function find_mark(cycle :: GlobalBounds, delta :: Int)
 
     field_names = propertynames(cycle)
 
-    arr = []
+    dict = Dict{Float64,Symbol}()
     for name in field_names
         field = getfield(cycle, name)
         if !isa(field, Nothing)
-            append!(arr, field - delta - xpos)
+            dict[abs(field - delta - xpos)] = name
         end
     end
     
-    if isempty(arr)
+    if isempty(dict)
         return 1
     end
 
-    return findmin(arr)[2]
+    key = findmin(collect(keys(dict)))[1]
+    return dict[key]
 
 end
 
-function move_mark(cycle::GlobalBounds, minInd::Int, delta :: Int, lastindex :: Int)
+function move_mark(cycle::GlobalBounds, field::Symbol, delta :: Int, lastindex :: Int)
     mousePosition = ImPlot.GetPlotMousePos()
     xpos = mousePosition.x
-    fieldNames = propertynames(cycle)
 
     if trunc(Int, xpos + delta) < 1
         newPos = 1
@@ -74,5 +70,5 @@ function move_mark(cycle::GlobalBounds, minInd::Int, delta :: Int, lastindex :: 
         newPos = trunc(Int, xpos + delta)
     end
 
-    setfield!(cycle,fieldNames[minInd], newPos)
+    setfield!(cycle, field, newPos)
 end
