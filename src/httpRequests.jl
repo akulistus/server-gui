@@ -26,7 +26,6 @@ function get_record_list()
     COMMAND = "records"
     r = HTTP.get("http://$HOST:$PORT/$user/$COMMAND")
     str = String(r.body)
-    print(str)
     return JSON3.read(str, Vector{HeaderInfo})
 end
 
@@ -40,7 +39,6 @@ function get_signal(RECORDNAME::String, from::Int, to::Int, filter::String = FIL
     query = Dict([("from", from), ("to", to), ("filter", filter), ("channel", channel)])
     r = HTTP.get("http://$(HOST):$(PORT)/$user/records/$RECORDNAME/signals"; query = query)
     str = String(r.body)
-    print(str)
     ecg_file = JSON3.read(str,Vector{Vector{Float64}})
     return ecg_file
 end
@@ -48,7 +46,6 @@ end
 function get_result(RECORDNAME :: String)
     r = HTTP.get("http://$(HOST):$(PORT)/$user/records/$RECORDNAME/result")
     str = String(r.body)
-    print(str)
     return JSON3.read(str, GuiMod.Result)
 end
 
@@ -73,7 +70,7 @@ end
 function get_complexes(recordName)
     r =  HTTP.get("http://$(HOST):$(PORT)/$user/records/$recordName/complexes")
     str = String(r.body)
-    return json_to_parameters_vec(str)
+    return JSON3.read(str, GuiMod.Complexes)
 end
 
 # function add_new_cycle(recordName::String, newCycle::CardioCycle)

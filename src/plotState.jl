@@ -14,9 +14,16 @@ end
 
 function vector_of_structs_to_struct_vector(state::PlotState)
     vector_of_structs = state.processRes.complexes
-    fieldNames = propertynames(vector_of_structs[1].params)
-    for name in fieldNames
-        setfield!(state, name, [getfield(x.params, name) for x in vector_of_structs])
+    field_names = propertynames(vector_of_structs[1].bounds)
+    for name in field_names
+        arr = []
+        for complex in vector_of_structs
+            field = getfield(complex.bounds, name)
+            if !isa(field, Nothing)
+                append!(arr, field)
+            end
+        end
+        setfield!(state, name, arr)
     end
 end
 
@@ -32,30 +39,40 @@ function find_complex()
 end
 
 
-# function find_mark(cycle :: CardioCycle, delta :: Int)
-#     mousePosition = ImPlot.GetPlotMousePos()
-#     xpos = mousePosition.x
+function find_mark(cycle :: GlobalBounds, delta :: Int)
+    mousePosition = ImPlot.GetPlotMousePos()
+    xpos = mousePosition.x
 
-#     fieldNames = propertynames(cycle)
+    field_names = propertynames(cycle)
 
-#     minInd = ([abs(getfield(cycle, x) -delta -xpos) for x in fieldNames] |> findmin)[2]
+    arr = []
+    for name in field_names
+        field = getfield(cycle, name)
+        if !isa(field, Nothing)
+            append!(arr, field - delta - xpos)
+        end
+    end
     
-#     return minInd
+    if isempty(arr)
+        return 1
+    end
 
-# end
+    return findmin(arr)[2]
 
-# function move_mark(cycle::CardioCycle, minInd::Int, delta :: Int, lastindex :: Int)
-#     mousePosition = ImPlot.GetPlotMousePos()
-#     xpos = mousePosition.x
-#     fieldNames = propertynames(cycle)
+end
 
-#     if trunc(Int, xpos + delta) < 1
-#         newPos = 1
-#     elseif trunc(Int, xpos + delta) > lastindex
-#         newPos = lastindex
-#     else
-#         newPos = trunc(Int, xpos + delta)
-#     end
+function move_mark(cycle::GlobalBounds, minInd::Int, delta :: Int, lastindex :: Int)
+    mousePosition = ImPlot.GetPlotMousePos()
+    xpos = mousePosition.x
+    fieldNames = propertynames(cycle)
 
-#     setfield!(cycle,fieldNames[minInd], newPos)
-# end
+    if trunc(Int, xpos + delta) < 1
+        newPos = 1
+    elseif trunc(Int, xpos + delta) > lastindex
+        newPos = lastindex
+    else
+        newPos = trunc(Int, xpos + delta)
+    end
+
+    setfield!(cycle,fieldNames[minInd], newPos)
+end

@@ -59,7 +59,6 @@ state = GuiMod.PlotState(
     GuiMod.Result(
         GuiMod.Settings(),
         [GuiMod.Complexes(
-            GuiMod.GlobalBounds(100,1,1,1,200),
             GuiMod.GlobalParams(
                 0,
                 0,
@@ -84,6 +83,7 @@ state = GuiMod.PlotState(
                 "0",
                 0,
                 "0"),
+            GuiMod.GlobalBounds(100,1,1,1,200),
             GuiMod.ChannelBounds([0.0],[0.0],[0.0],[0.0],[0.0],[0.0],[0.0],[0.0]),
             GuiMod.ChannelParams([0],[0],[0],[0],[0], [0],[0],[0],[0], [0],[0],[0], ["0.0"]))],
             0,
@@ -118,9 +118,9 @@ get_uistate(key::String, default = nothing) = get(STORAGE, CImGui.GetID(key), de
 set_uistate(key::String, value) = STORAGE[CImGui.GetID(key)] = value
 
 function find_chosen_complex(state :: GuiMod.PlotState, cursor::GuiMod.Cursor)
-    for i in eachindex(state.processRes)
-        ibeg = get_begin_end_marks(state.processRes[i].channel_params, true)
-        iend = get_begin_end_marks(state.processRes[i].channel_params, false)
+    for i in eachindex(state.processRes.complexes)
+        ibeg = get_begin_end_marks(state.processRes.complexes[i].bounds, true)
+        iend = get_begin_end_marks(state.processRes.complexes[i].bounds, false)
         if !isdisjoint(cursor.leftBorder:cursor.rightBorder, ibeg:iend)
             return i
         end
@@ -209,7 +209,7 @@ end
 
 function show_parameters(wigitName :: String, complexes :: Vector{GuiMod.Complexes}, applySelection::Bool)
     
-    params = complexes[1].bounds
+    params = complexes[1].params
 
     # Параметры в строчку
     propNames = propertynames(params)
@@ -236,7 +236,7 @@ function show_parameters(wigitName :: String, complexes :: Vector{GuiMod.Complex
         end
         CImGui.NextColumn()
 
-        params = complexes[complexInd].bounds
+        params = complexes[complexInd].params
         for name in propNames
             if name == :alpha
                 alphaEng = getfield(params, name)
@@ -257,16 +257,19 @@ function show_parameters(wigitName :: String, complexes :: Vector{GuiMod.Complex
     CImGui.Separator()
 end
 
-function get_begin_end_marks(cycle::GuiMod.ChannelParams, min::Bool)
+function get_begin_end_marks(cycle::GuiMod.GlobalBounds, min::Bool)
     propertys = propertynames(cycle)
     arr = []
     for property in propertys
         element = getfield(cycle,property)
-        if element != 0
+        if !isa(element, Nothing)
             append!(arr,element)
         end
     end
 
+    if isempty(arr)
+        return 1
+    end
     sort!(arr)
 
     if min
@@ -431,7 +434,7 @@ function Viewer(state::GuiMod.PlotState)
                 if !isequal(USERDATA["Record"], [""]) && !isequal(USERDATA["ActiveSettings"], [""])
                     GuiMod.change_settings(USERDATA["Record"],USERDATA["ActiveSettings"])
                     state.processRes = GuiMod.get_complexes(USERDATA["Record"])
-                    state.signal = GuiMod.get_ecg(USERDATA["Record"],1, 10_000_000, join(filters,","))
+                    state.signal = GuiMod.get_signal(USERDATA["Record"],1, 5000, join(filters,","))
                 end
 
             end
@@ -448,11 +451,14 @@ function Viewer(state::GuiMod.PlotState)
                     k += 2000
                 end
 
-                #Somehow need to fix this
-                # for name in propertynames(state.processRes[1].bounds)
-                #     bound = getfield(state, name)
-                #     ImPlot.PlotVLines("$name", trunc.(Int,bound), length(bound))
-                # end
+                #Somehow need to fix this.
+                for name in propertynames(state.processRes.complexes[1].bounds)
+                    bound = getfield(state, name)
+                    if isa(bound, Nothing) || isa(bound, Vector{Nothing})
+                        continue
+                    end
+                    ImPlot.PlotVLines("$name", trunc.(Int,bound), length(bound))
+                end
 
                 for index in eachindex(state.QRS_onset)
                     k = 0
@@ -498,17 +504,17 @@ function Viewer(state::GuiMod.PlotState)
                     if chosenComplexInd == 1
                         ibeg = 1
                     else
-                        ibeg = get_begin_end_marks(state.processRes.complexes[chosenComplexInd - 1].channel_params, false)
+                        ibeg = get_begin_end_marks(state.processRes.complexes[chosenComplexInd - 1].bounds, false)
                     end
 
                     if chosenComplexInd == length(state.processRes.complexes)
                         iend = lastindex(ecg[1])
                     else
-                        iend = get_begin_end_marks(state.processRes.complexes[chosenComplexInd + 1].channel_params, true)
+                        iend = get_begin_end_marks(state.processRes.complexes[chosenComplexInd + 1].bounds, true)
                     end
 
 
-                    cycle = state.processRes.complexes[chosenComplexInd].channel_params
+                    cycle = state.processRes.complexes[chosenComplexInd].bounds
                     fields = propertynames(cycle) 
                     
                     k = 0
@@ -522,26 +528,34 @@ function Viewer(state::GuiMod.PlotState)
 
                     for field in fields
                         bound = getfield(cycle, field)
-                        # ImPlot.PlotVLines("$field", Ref(trunc.(Int,bound) .- (ibeg)), length(bound))
+                        if isa(bound, Nothing)
+                            continue
+                        end
+                        ImPlot.PlotVLines("$field", Ref(trunc.(Int,bound) .- (ibeg)), length(bound))
                     end
 
                     # props = propertynames(chBounds)
                     # for prop in props
                     #     field = getfield(chBounds,prop)
                     #     k = 0
+                    #     arr = []
                     #     for ind in field
-                    #         ImPlot.PlotScatter(String(prop),[trunc(Int,ind) - ibeg], -k, 100)
+                    #         if isa(ind, Nothing)
+                    #             continue
+                    #         end
+                    #         append!(arr, trunc(Int,ind) - ibeg)
                     #         k += 2000
                     #     end
+                    #     # ImPlot.PlotScatter(String(prop), arr, -k, 100)
                     # end
 
                     if ImPlot.IsPlotHovered() && CImGui.IsMouseClicked(0)
                         USERDATA["flag"] = CImGui.ImGuiCond_Always
-                        USERDATA["ActiveMark"] = GuiMod.find_mark(cycle, ibeg)
+                        # USERDATA["ActiveMark"] = GuiMod.find_mark(cycle, ibeg)
                     elseif ImPlot.IsPlotHovered() && CImGui.IsMouseDown(0)
                         USERDATA["flag"] = CImGui.ImGuiCond_Always
                         actMark = USERDATA["ActiveMark"]
-                        GuiMod.move_mark(cycle, actMark, ibeg, lastindex(ecg[1]))
+                        # GuiMod.move_mark(cycle, actMark, ibeg, lastindex(ecg[1]))
                         GuiMod.vector_of_structs_to_struct_vector(state)
                     else
                         USERDATA["flag"] = CImGui.ImGuiCond_Once
@@ -581,7 +595,7 @@ function Viewer(state::GuiMod.PlotState)
 
             if CImGui.Button("Применить изменения")
                 if !isequal(USERDATA["Record"],[""])
-                    GuiMod.save_changes(state.processRes[chosenComplexInd].global_bounds, USERDATA["Record"])
+                    GuiMod.save_changes(state.processRes.complexes[chosenComplexInd].bounds, USERDATA["Record"])
                     state.processRes = GuiMod.get_complexes(USERDATA["Record"])
                 end
 

@@ -38,12 +38,12 @@ mutable struct ChannelBounds
     S_end::Vector{Union{Int, Nothing}}
 end
 
-mutable struct GlobalBounds{T <: Union{Int64, Nothing}}
-    P_onset::T
-    P_end::T
-    QRS_onset::T
-    QRS_end::T
-    T_end::T
+mutable struct GlobalBounds
+    P_onset :: Union{Int64, Nothing}
+    P_end :: Union{Int64, Nothing}
+    QRS_onset :: Union{Int64, Nothing}
+    QRS_end :: Union{Int64, Nothing}
+    T_end :: Union{Int64, Nothing}
 end
 
 mutable struct ChannelParams
@@ -93,11 +93,13 @@ mutable struct GlobalParams
 end
 
 mutable struct Complexes
-    params :: GlobalBounds
-    bounds :: GlobalParams
+    params :: GlobalParams
+    bounds :: GlobalBounds
     channel_bounds :: ChannelBounds
     channel_params :: ChannelParams
 end
+
+StructTypes.StructTypes(::Type{Complexes}) = StructTypes.Mutable()
 
 mutable struct ChunkParams
     HR :: Int
