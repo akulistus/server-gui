@@ -3,6 +3,7 @@ using CImGui
 using ImPlot
 using CImGui.CSyntax
 using CImGui.CSyntax.CStatic
+using Base.Iterators: partition
 
 include("src/Renderer.jl")
 include("src/GuiMod.jl")
@@ -189,53 +190,40 @@ function show_parameters(wigitName :: String, complexes :: Vector{GuiMod.Complex
     
     params = complexes[1].params
 
-    # Параметры в строчку
     propNames = propertynames(params)
+    num_of_strs_in_one_col = ceil(Int,length(propNames)/3)
+    propNames = collect(partition(propNames, num_of_strs_in_one_col))
 
-    CImGui.Columns(length(propNames) + 3, wigitName)
+    CImGui.Columns(7, wigitName)
     CImGui.Separator()
     CImGui.Text("#"); CImGui.NextColumn()
-    for header in propNames
-        if header == :alpha
-            alphaEng = getfield(params, header)
-            for i in propertynames(alphaEng)
-                CImGui.Text(tableParser[String(i)]); CImGui.NextColumn()
-            end
-            continue
-        end
-        CImGui.Text(tableParser[String(header)]); CImGui.NextColumn()
+    for _ in range(1,6)
+        CImGui.Text("Параметры"); CImGui.NextColumn()
     end
     CImGui.Separator()
 
-    for complexInd in eachindex(complexes)
-
-        if CImGui.Selectable("$complexInd", complexInd == USERDATA["ActiveComplexInd"], CImGui.ImGuiSelectableFlags_SpanAllColumns)
-            USERDATA["ActiveComplexInd"] = complexInd
+    for complex_ind in eachindex(complexes)
+        
+        if CImGui.Selectable("$complex_ind"*repeat("\n", num_of_strs_in_one_col), complex_ind == USERDATA["ActiveComplexInd"], CImGui.ImGuiSelectableFlags_SpanAllColumns)
+            USERDATA["ActiveComplexInd"] = complex_ind
         end
         CImGui.NextColumn()
-
-        params = complexes[complexInd].params
-        for name in propNames
-            if name == :alpha
-                alphaEng = getfield(params, name)
-                for i in propertynames(alphaEng)
-                    data = getfield(alphaEng,i)
-                    parsedData = parse_process_data(data)
-                    CImGui.Text("$parsedData"); CImGui.NextColumn()
-                end
-                continue
-            end
-
-            data = getfield(params,name)
-            parsedData = parse_process_data(data)
-            CImGui.Text("$parsedData");CImGui.NextColumn()
+        params = complexes[complex_ind].params
+        for headers in propNames
+            
+            str = join(collect(map(x -> tableParser[String(x)], headers)), "\n")
+            CImGui.Text("$str")
+            CImGui.NextColumn()
+            str = join(collect(map(x -> parse_process_data(getfield(params, x)), headers)), "\n")
+            CImGui.Text("$str")
+            CImGui.NextColumn()
         end
+        CImGui.Separator()
     end
     CImGui.Columns()
     CImGui.Separator()
 end
 
-# it's also possible to do ibeg - 100, iend + 100
 function get_ibeg_or_iend(cycle::GuiMod.GlobalBounds, min::Bool)
     propertys = propertynames(cycle)
     arr = []
