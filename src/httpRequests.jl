@@ -19,7 +19,7 @@ end
 
 function select_db(DIRECTORY::String)
     COMMAND = "directory"
-    HTTP.post("http://$HOST:$PORT/$user/$COMMAND"; body = "C:/Server/data/$DIRECTORY")
+    HTTP.post("http://$HOST:$PORT/$user/$COMMAND"; body = "C:/Users/8cara/OneDrive/Documents/Projects/Server/data/$DIRECTORY")
 end
 
 function get_record_list()
@@ -55,42 +55,28 @@ end
 #     return JSON3.read(str,Dict{String, Any})
 # end
 
-# function process_ecg(recordName)
-#     r = HTTP.get("http://$HOST:$PORT/$user/records/$recordName/process_ecg")
-#     str = String(r.body)
-#     return json_to_parameters_vec(str)
-# end
-
-function save_changes(cycle, recordName)
+function save_changes(cycle, record_name)
     json_to_shift = JSON3.write(cycle)
-    HTTP.post("http://$(HOST):$(PORT)/$user/records/$recordName/complexes", [("Content-Type" => "application/json")], json_to_shift, verbose=3)
+    HTTP.post("http://$(HOST):$(PORT)/$user/records/$record_name/complexes", [("Content-Type" => "application/json")], json_to_shift, verbose=3)
 end
 
-function get_complexes(recordName)
-    r =  HTTP.get("http://$(HOST):$(PORT)/$user/records/$recordName/complexes")
+function get_complexes(record_name)
+    r =  HTTP.get("http://$(HOST):$(PORT)/$user/records/$record_name/complexes")
     str = String(r.body)
-    return JSON3.read(str, GuiMod.Complexes)
+    return JSON3.read(str, Vector{Complexes})
 end
 
-# function add_new_cycle(recordName::String, newCycle::CardioCycle)
-#     json_cycle = JSON3.write(newCycle)
-#     HTTP.post("http://$(HOST):$(PORT)/$user/records/$recordName/complexes", [("Content-Type" => "application/json")], json_cycle, verbose=3)
-# end
-
-function undo_changes(recordName)
-    r = HTTP.post("http://$(HOST):$(PORT)/$user/records/$recordName/undo")
-end
-
-function redo_changes(recordName)
-    r = HTTP.post("http://$(HOST):$(PORT)/$user/records/$recordName/redo")
-end
-
-function change_settings(recordName::String, settings::Settings)
+function change_settings(record_name::String, settings::Settings)
     json_settings = JSON3.write(settings)
-    HTTP.post("http://$(HOST):$(PORT)/$user/records/$recordName/settings", [("Content-Type" => "application/json")], json_settings, verbose=3)
+    HTTP.post("http://$(HOST):$(PORT)/$user/records/$record_name/settings", [("Content-Type" => "application/json")], json_settings, verbose=3)
 end
 
-function get_settings(recordName::String)
-    r = HTTP.get("http://$(HOST):$(PORT)/$user/records/$recordName/settings")
+function get_settings(record_name::String)
+    r = HTTP.get("http://$(HOST):$(PORT)/$user/records/$record_name/settings")
     return JSON3.read(r.body, Settings)
+end
+
+function get_representative(record_name::String)
+    r = HTTP.get("http://$(HOST):$(PORT)/$user/records/$record_name/representative")
+    return JSON3.read(r.body, Int)
 end

@@ -61,7 +61,7 @@ state = GuiMod.PlotState(
                 "0",
                 0,
                 "0"),
-            GuiMod.GlobalBounds(100,1,1,1,200),
+                GuiMod.GlobalBounds(100,1,1,1,200),
             GuiMod.ChannelBounds([1],[1],[1],[1],[1],[1],[1],[1]),
             GuiMod.ChannelParams([0],[0],[0],[0],[0], [0],[0],[0],[0], [0],[0],[0], ["0.0"]))],
             0,
@@ -97,8 +97,8 @@ set_uistate(key::String, value) = STORAGE[CImGui.GetID(key)] = value
 
 function find_chosen_complex(state :: GuiMod.PlotState, cursor::GuiMod.Cursor)
     for i in eachindex(state.processRes.complexes)
-        ibeg = get_begin_end_marks(state.processRes.complexes[i].bounds, true)
-        iend = get_begin_end_marks(state.processRes.complexes[i].bounds, false)
+        ibeg = get_ibeg_or_iend(state.processRes.complexes[i].bounds, true)
+        iend = get_ibeg_or_iend(state.processRes.complexes[i].bounds, false)
         if !isdisjoint(cursor.leftBorder:cursor.rightBorder, ibeg:iend)
             return i
         end
@@ -142,7 +142,7 @@ function select_records(selected_record_name, records::Vector{GuiMod.HeaderInfo}
             
             set_uistate("selected_record",record)
             USERDATA["Record"] = record
-            USERDATA["ActiveComplexInd"] = 1
+            USERDATA["ActiveComplexInd"] = GuiMod.get_representative(record)
             USERDATA["ActiveSettings"] = [false, false]
             state.signal = GuiMod.get_signal(record, 1, 5000)
             state.processRes = GuiMod.get_result(record)
@@ -235,14 +235,14 @@ function show_parameters(wigitName :: String, complexes :: Vector{GuiMod.Complex
     CImGui.Separator()
 end
 
-# need to check if ibeg is > then the smallest value of cycle somehow...
-function get_begin_end_marks(cycle::GuiMod.GlobalBounds, min::Bool)
+# it's also possible to do ibeg - 100, iend + 100
+function get_ibeg_or_iend(cycle::GuiMod.GlobalBounds, min::Bool)
     propertys = propertynames(cycle)
     arr = []
     for property in propertys
-        element = getfield(cycle,property)
+        element = getfield(cycle, property)
         if !isa(element, Nothing)
-            append!(arr,element)
+            append!(arr, element)
         end
     end
 
@@ -254,6 +254,45 @@ function get_begin_end_marks(cycle::GuiMod.GlobalBounds, min::Bool)
         return minimum(arr)
     else
         return maximum(arr)
+    end
+end
+
+# need to check if ibeg is > then the smallest value of cycle somehow...
+function get_begin_end_marks(cycle_bound::GuiMod.GlobalBounds, cycle_main::GuiMod.GlobalBounds, min::Bool)
+    propertys = propertynames(cycle_bound)
+    arr_bound = []
+    arr_main = []
+    for property in propertys
+        element = getfield(cycle_bound,property)
+        if !isa(element, Nothing)
+            append!(arr_bound,element)
+        end
+
+        element = getfield(cycle_main,property)
+        if !isa(element, Nothing)
+            append!(arr_main,element)
+        end
+    end
+
+    if isempty(arr_bound)
+        return 1
+    end
+
+
+    if min
+        sort!(arr_bound)
+        for item in arr_bound
+            if item > maximum(arr_main)
+                return item
+            end
+        end
+    else
+        sort!(arr_bound, rev = true)
+        for item in arr_bound 
+            if item < minimum(arr_main)
+                return item
+            end
+        end
     end
 end
 
@@ -390,7 +429,6 @@ function Viewer(state::GuiMod.PlotState)
             begin
             if @c CImGui.SliderFloat("Настройка чувствительности",&offset, 0, 1)
                 USERDATA["ActiveSettings"].QRSsensitivity = offset
-                @info USERDATA["ActiveSettings"].QRSsensitivity
             end
             CImGui.SameLine()
             @c CImGui.Checkbox("IsSpikes", &spikes)
@@ -410,9 +448,8 @@ function Viewer(state::GuiMod.PlotState)
                 end
                 
                 if !isequal(USERDATA["Record"], [""]) && !isequal(USERDATA["ActiveSettings"], [""])
-                    GuiMod.change_settings(USERDATA["Record"],USERDATA["ActiveSettings"])
-                    state.processRes = GuiMod.get_complexes(USERDATA["Record"])
-                    state.signal = GuiMod.get_signal(USERDATA["Record"],1, 5000, join(filters,","))
+                    GuiMod.change_settings(USERDATA["Record"], USERDATA["ActiveSettings"])
+                    state.processRes.complexes = GuiMod.get_complexes(USERDATA["Record"])
                 end
 
             end
@@ -482,13 +519,15 @@ function Viewer(state::GuiMod.PlotState)
                     if chosenComplexInd == 1
                         ibeg = 1
                     else
-                        ibeg = get_begin_end_marks(state.processRes.complexes[chosenComplexInd - 1].bounds, false)
+                        ibeg = get_begin_end_marks(state.processRes.complexes[chosenComplexInd - 1].bounds,
+                        state.processRes.complexes[chosenComplexInd].bounds, false)
                     end
 
                     if chosenComplexInd == length(state.processRes.complexes)
                         iend = lastindex(ecg[1])
                     else
-                        iend = get_begin_end_marks(state.processRes.complexes[chosenComplexInd + 1].bounds, true)
+                        iend = get_begin_end_marks(state.processRes.complexes[chosenComplexInd + 1].bounds, 
+                        state.processRes.complexes[chosenComplexInd].bounds, true)
                     end
 
 
@@ -584,14 +623,12 @@ function Viewer(state::GuiMod.PlotState)
             CImGui.SameLine()
             if CImGui.Button("Undo")
                 if !isequal(USERDATA["Record"],[""])
-                    GuiMod.undo_changes(USERDATA["Record"])
                     state.processRes = GuiMod.get_complexes(USERDATA["Record"])
                 end
             end
             CImGui.SameLine()
             if CImGui.Button("Redo")
                 if !isequal(USERDATA["Record"],[""])
-                    GuiMod.redo_changes(USERDATA["Record"])
                     state.processRes = GuiMod.get_complexes(USERDATA["Record"])
                 end
             end

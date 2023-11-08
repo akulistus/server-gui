@@ -94,11 +94,17 @@ end
 
 mutable struct Complexes
     params :: GlobalParams
-    bounds :: GlobalBounds
+    bounds :: GlobalBounds 
     channel_bounds :: ChannelBounds
     channel_params :: ChannelParams
 end
 
+StructTypes.names(::Type{Complexes}) = (
+    (:bounds, :bounds),
+    (:params, :params),
+    (:channel_bounds, :channel_bounds),
+    (:channel_params, :channel_params)
+)
 StructTypes.StructTypes(::Type{Complexes}) = StructTypes.Mutable()
 
 mutable struct ChunkParams
