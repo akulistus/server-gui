@@ -57,10 +57,11 @@ const USERDATA = Dict{String, Any}(
     "ActiveChannel" => [""],
     "ActiveCursor" =>[""],
     "ActiveFilters" => [false, false, false],
-    "Record" => [""],
     "ActiveSettings" => GuiMod.Settings(),
     "Cursor" => GuiMod.Cursor(100,100),
-    "flag" => CImGui.ImGuiCond_Once
+    "flag" => CImGui.ImGuiCond_Once,
+    "Range" => [Cint(1), Cint(200)],
+    "Record" => [""]
 )
 
 try
@@ -74,9 +75,9 @@ get_uistate(key::String, default = nothing) = get(STORAGE, CImGui.GetID(key), de
 set_uistate(key::String, value) = STORAGE[CImGui.GetID(key)] = value
 
 function find_chosen_complex(state :: GuiMod.PlotState, cursor::GuiMod.Cursor)
-    for i in eachindex(state.processRes.complexes)
-        ibeg = get_ibeg_or_iend(state.processRes.complexes[i].bounds, true)
-        iend = get_ibeg_or_iend(state.processRes.complexes[i].bounds, false)
+    for i in eachindex(state.result.complexes)
+        ibeg = get_ibeg_or_iend(state.result.complexes[i].bounds, true)
+        iend = get_ibeg_or_iend(state.result.complexes[i].bounds, false)
         if !isdisjoint(cursor.leftBorder:cursor.rightBorder, ibeg:iend)
             return i
         end
@@ -122,9 +123,10 @@ function select_records(selected_record_name, records::Vector{GuiMod.HeaderInfo}
             USERDATA["Record"] = record
             USERDATA["ActiveComplexInd"] = GuiMod.get_representative(record) + 1 # zero-based.
             USERDATA["ActiveSettings"] = [false, false]
-            state.signal = GuiMod.get_signal(record, 1, 5000)
-            state.processRes = GuiMod.get_result(record)
-            state.recordInfo = GuiMod.get_record_info(record)
+            state.record_info = GuiMod.get_record_info(record)
+            USERDATA["Range"][2] = Cint(state.record_info.length)
+            state.signal = GuiMod.get_signal(record, Int(USERDATA["Range"][1]), Int(USERDATA["Range"][2]))
+            state.result = GuiMod.get_result(record)
             USERDATA["ActiveSettings"] = GuiMod.get_settings(record)
             state.numChn = length(keys(state.signal))
             GuiMod.vector_of_structs_to_struct_vector(state)
@@ -331,7 +333,8 @@ function ui()
             CImGui.SameLine()
             CImGui.BeginGroup()
                 
-                show_stats("BaseStats", state.recordInfo)
+                show_stats("BaseStats", state.record_info)
+                CImGui.Separator()
 
             CImGui.EndGroup()
 
@@ -371,6 +374,8 @@ function Viewer(state::GuiMod.PlotState)
             isoline = USERDATA["ActiveFilters"][1],
             fiftyHz = USERDATA["ActiveFilters"][2],
             thirtyfiveHz = USERDATA["ActiveFilters"][3],
+            from = USERDATA["Range"][1],
+            to = USERDATA["Range"][2],
             begin
             if @c CImGui.SliderFloat("Настройка чувствительности",&offset, 0, 1)
                 USERDATA["ActiveSettings"].QRSsensitivity = offset
@@ -381,6 +386,10 @@ function Viewer(state::GuiMod.PlotState)
             @c CImGui.Checkbox("isoline", &isoline)
             @c CImGui.Checkbox("50Hz", &fiftyHz)
             @c CImGui.Checkbox("35Hz", &thirtyfiveHz)
+            CImGui.Text("Выбор диапазона:")
+            @c CImGui.InputInt("from", &from)
+            @c CImGui.InputInt("to", &to)
+            print(USERDATA["Range"])
 
             if CImGui.Button("Применить")
             
@@ -400,7 +409,7 @@ function Viewer(state::GuiMod.PlotState)
                 if !isequal(USERDATA["Record"], [""]) && !isequal(USERDATA["ActiveSettings"], [""])
                     GuiMod.change_settings(USERDATA["Record"], USERDATA["ActiveSettings"])
                     state.signal = GuiMod.get_signal(USERDATA["Record"], 1, 5000, join(filters, ","))
-                    state.processRes.complexes = GuiMod.get_complexes(USERDATA["Record"])
+                    state.result.complexes = GuiMod.get_complexes(USERDATA["Record"])
                 end
 
             end
@@ -418,7 +427,7 @@ function Viewer(state::GuiMod.PlotState)
                 end
 
                 #Somehow need to fix this.
-                for name in propertynames(state.processRes.complexes[1].bounds)
+                for name in propertynames(state.result.complexes[1].bounds)
                     bound = getfield(state, name)
                     if isa(bound, Nothing) || isa(bound, Vector{Nothing})
                         continue
@@ -465,24 +474,23 @@ function Viewer(state::GuiMod.PlotState)
                 
                 if !isnothing(chosenComplexInd)
 
-                    chBounds = state.processRes.complexes[chosenComplexInd].channel_bounds
+                    chBounds = state.result.complexes[chosenComplexInd].channel_bounds
                     
                     if chosenComplexInd == 1
                         ibeg = 1
                     else
-                        ibeg = get_begin_end_marks(state.processRes.complexes[chosenComplexInd - 1].bounds,
-                        state.processRes.complexes[chosenComplexInd].bounds, false)
+                        ibeg = get_begin_end_marks(state.result.complexes[chosenComplexInd - 1].bounds,
+                        state.result.complexes[chosenComplexInd].bounds, false)
                     end
 
-                    if chosenComplexInd == length(state.processRes.complexes)
+                    if chosenComplexInd == length(state.result.complexes)
                         iend = lastindex(ecg[1])
                     else
-                        iend = get_begin_end_marks(state.processRes.complexes[chosenComplexInd + 1].bounds, 
-                        state.processRes.complexes[chosenComplexInd].bounds, true)
+                        iend = get_begin_end_marks(state.result.complexes[chosenComplexInd + 1].bounds, 
+                        state.result.complexes[chosenComplexInd].bounds, true)
                     end
 
-
-                    cycle = state.processRes.complexes[chosenComplexInd].bounds
+                    cycle = state.result.complexes[chosenComplexInd].bounds
                     fields = propertynames(cycle) 
                     
                     k = 0
@@ -493,7 +501,6 @@ function Viewer(state::GuiMod.PlotState)
                         k += 2000
                     end
                     
-
                     for field in fields
                         bound = getfield(cycle, field)
                         if isa(bound, Nothing)
@@ -547,8 +554,6 @@ function Viewer(state::GuiMod.PlotState)
                     end
                 end
 
-
-
                 limits = ImPlot.GetPlotLimits()
                 x1, x2 = limits.X.Min, limits.X.Max
                 y1, y2 = limits.Y.Min, limits.Y.Max
@@ -566,8 +571,8 @@ function Viewer(state::GuiMod.PlotState)
 
             if CImGui.Button("Применить изменения")
                 if !isequal(USERDATA["Record"],[""])
-                    GuiMod.post_complex(USERDATA["Record"], state.processRes.complexes[chosenComplexInd].bounds)
-                    state.processRes.complexes = GuiMod.get_complexes(USERDATA["Record"])
+                    GuiMod.post_complex(USERDATA["Record"], state.result.complexes[chosenComplexInd].bounds)
+                    state.result.complexes = GuiMod.get_complexes(USERDATA["Record"])
                 end
             end
         CImGui.EndGroup()
@@ -579,21 +584,21 @@ end
 
 function ParamsTable(state::GuiMod.PlotState)
     if CImGui.Begin("Параметры")
-        show_parameters("#algRes", state.processRes.complexes, true)
+        show_parameters("#algRes", state.result.complexes, true)
         CImGui.End()
     end
 end
 
 function ShiftsTable(state::GuiMod.PlotState)
     if CImGui.Begin("Смещения")
-        show_shifts([:ST20,:ST40,:ST60,:ST80], state.processRes.complexes, true)
+        show_shifts([:ST20,:ST40,:ST60,:ST80], state.result.complexes, true)
         CImGui.End()
     end
 end
 
 function AmpTable(state::GuiMod.PlotState)
     if CImGui.Begin("Амплитуды")
-        show_shifts([:P_amp,:Q_amp,:R_amp,:S_amp,:T_amp], state.processRes.complexes, true)
+        show_shifts([:P_amp,:Q_amp,:R_amp,:S_amp,:T_amp], state.result.complexes, true)
         CImGui.End()
     end
 end
@@ -603,7 +608,7 @@ function RepresentatieveComplexParamsTable(state::GuiMod.PlotState, complexInd :
     if CImGui.Begin("Параметры комплекса")
         
         if !isnothing(complexInd)
-            complex = state.processRes.complexes[complexInd]
+            complex = state.result.complexes[complexInd]
             show_parameters("#SingleParamTable", [complex], false)
             CImGui.Text("Смещения:")
             show_shifts([:ST20,:ST40,:ST60,:ST80], [complex], false)
