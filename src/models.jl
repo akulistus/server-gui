@@ -10,10 +10,11 @@ mutable struct HeaderInfo
     monitorType :: Union{Int, Nothing}
     stimuls :: Union{String, Nothing}
 
-    # function HeaderInfo(filename::String = "0", timestart::String = "0",
-    #     length::Int = 0, freq::Float64 = 0.0, channels::Vector{String} = ["0"],)
-    #     new(filename, timestart, length, freq, channels, nothing, nothing, nothing)
-    # end
+    function HeaderInfo(filename::String = "0", timestart::String = "0",
+        length::Int = 0, freq::Float64 = 0.0, channels::Vector{String} = ["0"],
+        monitorNumber::Union{Int, Nothing} = 1, monitorType::Union{Int, Nothing} = 1, stimuls::Union{String, Nothing} = "1")
+        new(filename, timestart, length, freq, channels, monitorNumber, monitorType, stimuls)
+    end
 end
 JSON3.StructTypes(::Type{HeaderInfo}) = JSON3.Mutable()
 
@@ -36,6 +37,13 @@ mutable struct ChannelBounds
     R2_end::Vector{Union{Int, Nothing}}
     S_onset::Vector{Union{Int, Nothing}}
     S_end::Vector{Union{Int, Nothing}}
+
+    function ChannelBounds(Q_onset::Vector{Union{Int, Nothing}} = [1, nothing], Q_end::Vector{Union{Int, Nothing}} = [1, nothing],
+        R1_onset::Vector{Union{Int, Nothing}} = [1, nothing], R1_end::Vector{Union{Int, Nothing}} = [1, nothing],
+        R2_onset::Vector{Union{Int, Nothing}} = [1, nothing], R2_end::Vector{Union{Int, Nothing}} = [1, nothing],
+        S_onset::Vector{Union{Int, Nothing}} = [1, nothing], S_end::Vector{Union{Int, Nothing}} = [1, nothing])
+        new(Q_onset, Q_end, R1_onset, R1_end, R2_onset, R2_end, S_onset, S_end)
+    end
 end
 
 mutable struct GlobalBounds
@@ -44,6 +52,12 @@ mutable struct GlobalBounds
     QRS_onset :: Union{Int64, Nothing}
     QRS_end :: Union{Int64, Nothing}
     T_end :: Union{Int64, Nothing}
+
+    function GlobalBounds(P_onset::Union{Int64, Nothing} = 100, P_end::Union{Int64, Nothing} = 1,
+        QRS_onset::Union{Int64, Nothing} = 1, QRS_end::Union{Int64, Nothing} = 1,
+        T_end::Union{Int64, Nothing} = 200)
+        new(P_onset, P_end, QRS_onset, QRS_end, T_end)
+    end
 end
 
 mutable struct ChannelParams
@@ -63,6 +77,18 @@ mutable struct ChannelParams
     S_dur :: Vector{Union{Int, Nothing}}
 
     name :: Vector{Union{String, Nothing}}
+
+    function ChannelParams(P_amp::Vector{Union{Int, Nothing}} = [1, nothing], Q_amp::Vector{Union{Int, Nothing}} = [1, nothing],
+        R_amp::Vector{Union{Int, Nothing}} = [1, nothing], S_amp::Vector{Union{Int, Nothing}} = [1, nothing], 
+        T_amp::Vector{Union{Int, Nothing}} = [1, nothing], ST20::Vector{Union{Int, Nothing}} = [1, nothing],
+        ST40::Vector{Union{Int, Nothing}} = [1, nothing], ST60::Vector{Union{Int, Nothing}} = [1, nothing], 
+        ST80::Vector{Union{Int, Nothing}} = [1, nothing], Q_dur::Vector{Union{Int, Nothing}} = [1, nothing], 
+        R_dur::Vector{Union{Int, Nothing}} = [1, nothing], S_dur::Vector{Union{Int, Nothing}} = [1, nothing], 
+        name::Vector{Union{String, Nothing}} = ["1", nothing])
+        new(P_amp, Q_amp, R_amp, S_amp, T_amp,
+        ST20, ST40, ST60, ST80, Q_dur, R_dur, S_dur, name)
+        
+    end
 end
 
 mutable struct GlobalParams
@@ -89,6 +115,19 @@ mutable struct GlobalParams
     lead_depression :: Union{String, Nothing}
     max_elevation :: Union{Int, Nothing}
     lead_elevation :: Union{String, Nothing}
+
+    function GlobalParams(P_dur::Union{Int, Nothing} = 1, PQ_dur::Union{Int, Nothing} = 1, QRS_dur::Union{Int, Nothing} = 1, QT_dur::Union{Int, Nothing} = 1,
+        RR::Union{Int, Nothing} = 1, P_angle::Union{Int, Nothing} = 1, QRS_angle::Union{Int, Nothing} = 1, T_angle::Union{Int, Nothing} = 1, trans_zone::Union{String, Nothing} = "1",
+        QTc_Fridericia::Union{Int, Nothing} = 1, QTc_Bazett::Union{Int, Nothing} = 1, QTc_Hodges::Union{Int, Nothing} = 1, QTc_Framingham::Union{Int, Nothing} = 1, QTc_MortaraVeritas::Union{Int, Nothing} = 1,
+        SokolowLyon_ind::Union{Int, Nothing} = 1,
+        max_depression::Union{Int, Nothing} = 1, lead_depression::Union{String, Nothing} = "1", max_elevation::Union{Int, Nothing} = 1, lead_elevation::Union{String, Nothing} = "1"
+        )
+        new(P_dur, PQ_dur, QRS_dur, QT_dur,
+        RR, P_angle, QRS_angle, T_angle, trans_zone,
+        QTc_Fridericia, QTc_Bazett, QTc_Hodges, QTc_Framingham, QTc_MortaraVeritas,
+        SokolowLyon_ind,
+        max_depression, lead_depression, max_elevation, lead_elevation)
+    end
     
 end
 
@@ -112,6 +151,12 @@ mutable struct ChunkParams
     RRmean :: Int
     RRmax :: Int
     RRmin :: Int
+
+    function ChunkParams(HR::Int = 1, RRmean::Int = 1,
+        RRmax::Int = 1, RRmin::Int = 1)
+        new(HR, RRmean, RRmax, RRmin)
+        
+    end
 end
 
 mutable struct Result
@@ -123,3 +168,10 @@ mutable struct Result
     spikes :: Vector{Int}
 end
 StructTypes.StructTypes(::Type{Result}) = StructTypes.Mutable()
+
+mutable struct Preview
+    params :: GlobalParams
+    chunk_params :: ChunkParams
+end
+
+StructTypes.StructTypes(::Type{Preview}) = StructTypes.Mutable()

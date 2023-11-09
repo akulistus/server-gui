@@ -29,12 +29,6 @@ function get_record_list()
     return JSON3.read(str, Vector{HeaderInfo})
 end
 
-# function select_record(COMMAND::String)
-#     r = HTTP.post("http://$HOST:$PORT/open_record/$COMMAND")
-#     str = String(r.body)
-#     return json_to_signal_info(str)
-# end
-
 function get_signal(RECORDNAME::String, from::Int, to::Int, filter::String = FILTERS, channel::String = CHANNELS)
     query = Dict([("from", from), ("to", to), ("filter", filter), ("channel", channel)])
     r = HTTP.get("http://$(HOST):$(PORT)/$user/records/$RECORDNAME/signals"; query = query)
@@ -49,15 +43,20 @@ function get_result(RECORDNAME :: String)
     return JSON3.read(str, GuiMod.Result)
 end
 
-# function get_record_info()
-#     r = HTTP.get("http://$HOST:$PORT/record_info")
-#     str = String(r.body)
-#     return JSON3.read(str,Dict{String, Any})
-# end
+function get_record_info(record_name::String)
+    r = HTTP.get("http://$HOST:$PORT/$user/records/$record_name/info")
+    str = String(r.body)
+    return JSON3.read(str,HeaderInfo)
+end
 
 function save_changes(cycle, record_name)
     json_to_shift = JSON3.write(cycle)
     HTTP.post("http://$(HOST):$(PORT)/$user/records/$record_name/complexes", [("Content-Type" => "application/json")], json_to_shift, verbose=3)
+end
+
+function post_complex(record_name::String, complex::GlobalBounds)
+    json_complex = JSON3.write(complex)
+    r = HTTP.post("http://$(HOST):$(PORT)/$user/records/$record_name/complexes", [("Content-Type" => "application/json")], json_complex, verbose=3)
 end
 
 function get_complexes(record_name)
@@ -79,4 +78,11 @@ end
 function get_representative(record_name::String)
     r = HTTP.get("http://$(HOST):$(PORT)/$user/records/$record_name/representative")
     return JSON3.read(r.body, Int)
+end
+
+function get_params_preview(record_name::String, complex)
+    json_complex = JSON3.write(complex)
+    r = HTTP.post("http://$(HOST):$(PORT)/$user/records/$record_name/params_preview", [("Content-Type" => "application/json")], json_, verbose=3)
+    str = String(r.body)
+    return JSON3.read(str, Preview)
 end

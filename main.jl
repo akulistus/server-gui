@@ -34,52 +34,29 @@ state = GuiMod.PlotState(
     [0],
     [0],
     [0],
-    GuiMod.HeaderInfo("1","1",1,1.,["1"],1, 1, "1"),
+    GuiMod.HeaderInfo(),
     GuiMod.Result(
         GuiMod.Settings(),
         [GuiMod.Complexes(
-            GuiMod.GlobalParams(
-                0,
-                0,
-                0,
-                0,
-                
-                0,
-                0,
-                0,
-                0,
-                "0",
-
-                0,
-                0,
-                0,
-                0,
-                0,
-
-                0,
-
-                0,
-                "0",
-                0,
-                "0"),
-                GuiMod.GlobalBounds(100,1,1,1,200),
-            GuiMod.ChannelBounds([1],[1],[1],[1],[1],[1],[1],[1]),
-            GuiMod.ChannelParams([0],[0],[0],[0],[0], [0],[0],[0],[0], [0],[0],[0], ["0.0"]))],
+            GuiMod.GlobalParams(),
+            GuiMod.GlobalBounds(),
+            GuiMod.ChannelBounds(),
+            GuiMod.ChannelParams())],
             0,
-            GuiMod.HeaderInfo("1","1",1,1.,["1"],1, 1, "1"),
-            GuiMod.ChunkParams(0,0,0,0),
+            GuiMod.HeaderInfo(),
+            GuiMod.ChunkParams(),
             [0]
             ),
     (min = 1, max = 9600),
     (min = -12*2000, max = 1))
 const USERDATA = Dict{String, Any}(
     "AvailableDataBases" => [""],
-    "AvailableRecords" => [GuiMod.HeaderInfo("1","1",1,1.,["1"],1, 1, "1")],
+    "AvailableRecords" => [GuiMod.HeaderInfo()],
     "ActiveMark" => [""],
     "ActiveComplexInd" => 1,
     "ActiveChannel" => [""],
     "ActiveCursor" =>[""],
-    "ActiveFilters" => [false, false],
+    "ActiveFilters" => [false, false, false],
     "Record" => [""],
     "ActiveSettings" => GuiMod.Settings(),
     "Cursor" => GuiMod.Cursor(100,100),
@@ -143,10 +120,11 @@ function select_records(selected_record_name, records::Vector{GuiMod.HeaderInfo}
             
             set_uistate("selected_record",record)
             USERDATA["Record"] = record
-            USERDATA["ActiveComplexInd"] = GuiMod.get_representative(record)
+            USERDATA["ActiveComplexInd"] = GuiMod.get_representative(record) + 1 # zero-based.
             USERDATA["ActiveSettings"] = [false, false]
             state.signal = GuiMod.get_signal(record, 1, 5000)
             state.processRes = GuiMod.get_result(record)
+            state.recordInfo = GuiMod.get_record_info(record)
             USERDATA["ActiveSettings"] = GuiMod.get_settings(record)
             state.numChn = length(keys(state.signal))
             GuiMod.vector_of_structs_to_struct_vector(state)
@@ -164,7 +142,7 @@ function show_stats(wigit_name::String, info::GuiMod.HeaderInfo)
     for property in propertynames(info)
         CImGui.TableNextRow()
         CImGui.TableSetColumnIndex(0)
-        CImGui.Text("$(tableParser[String(property)])")
+        CImGui.Text("$(String(property))")
         CImGui.TableSetColumnIndex(1)
         CImGui.Text("$(getfield(info,property))")
     end
@@ -211,7 +189,7 @@ function show_parameters(wigitName :: String, complexes :: Vector{GuiMod.Complex
         params = complexes[complex_ind].params
         for headers in propNames
             
-            str = join(collect(map(x -> tableParser[String(x)], headers)), "\n")
+            str = join(collect(map(x -> String(x), headers)), "\n")
             CImGui.Text("$str")
             CImGui.NextColumn()
             str = join(collect(map(x -> parse_process_data(getfield(params, x)), headers)), "\n")
@@ -327,34 +305,6 @@ function ui()
     records = USERDATA["AvailableRecords"]
     CImGui.BeginTabBar("##Tabs")
         
-        # if CImGui.BeginTabItem("General Info")
-            
-        #     CImGui.BeginGroup()
-        #     CImGui.BeginChild("Bases", CImGui.ImVec2(150, -CImGui.GetFrameHeightWithSpacing()), true)
-                
-        #         selected = get_uistate("selected_database", "None")    
-                
-        #         select_base(selected, dataBases)
-            
-        #     CImGui.EndChild()
-            
-        #     if CImGui.Button("Обновить")
-        #         dataBases = GuiMod.get_db_list()
-        #     end
-        
-        # CImGui.EndGroup()
-        # CImGui.SameLine()
-            
-        #     CImGui.BeginGroup()
-                
-        #         show_stats("BaseStats", state.recordInfo)
-
-        #     CImGui.EndGroup()
-        
-        # CImGui.EndTabItem()
-        # end
-
-
         if CImGui.BeginTabItem("Базы и записи")
             
             CImGui.BeginGroup()
@@ -377,6 +327,12 @@ function ui()
                 
                 CImGui.EndChild()
             
+            CImGui.EndGroup()
+            CImGui.SameLine()
+            CImGui.BeginGroup()
+                
+                show_stats("BaseStats", state.recordInfo)
+
             CImGui.EndGroup()
 
             if CImGui.Button("Обновить")
@@ -414,6 +370,7 @@ function Viewer(state::GuiMod.PlotState)
             spikes = USERDATA["ActiveSettings"].isspikes,
             isoline = USERDATA["ActiveFilters"][1],
             fiftyHz = USERDATA["ActiveFilters"][2],
+            thirtyfiveHz = USERDATA["ActiveFilters"][3],
             begin
             if @c CImGui.SliderFloat("Настройка чувствительности",&offset, 0, 1)
                 USERDATA["ActiveSettings"].QRSsensitivity = offset
@@ -423,6 +380,7 @@ function Viewer(state::GuiMod.PlotState)
             CImGui.Text("Выбор фильтра:")
             @c CImGui.Checkbox("isoline", &isoline)
             @c CImGui.Checkbox("50Hz", &fiftyHz)
+            @c CImGui.Checkbox("35Hz", &thirtyfiveHz)
 
             if CImGui.Button("Применить")
             
@@ -432,11 +390,16 @@ function Viewer(state::GuiMod.PlotState)
                 end
                 
                 if fiftyHz
-                    push!(filters, "50Hz")
+                    push!(filters, "50hz")
+                end
+
+                if thirtyfiveHz
+                    push!(filters, "35hz")
                 end
                 
                 if !isequal(USERDATA["Record"], [""]) && !isequal(USERDATA["ActiveSettings"], [""])
                     GuiMod.change_settings(USERDATA["Record"], USERDATA["ActiveSettings"])
+                    state.signal = GuiMod.get_signal(USERDATA["Record"], 1, 5000, join(filters, ","))
                     state.processRes.complexes = GuiMod.get_complexes(USERDATA["Record"])
                 end
 
@@ -603,21 +566,8 @@ function Viewer(state::GuiMod.PlotState)
 
             if CImGui.Button("Применить изменения")
                 if !isequal(USERDATA["Record"],[""])
-                    # GuiMod.save_changes(state.processRes.complexes[chosenComplexInd].bounds, USERDATA["Record"])
-                    # state.processRes.complexes = GuiMod.get_complexes(USERDATA["Record"])
-                end
-
-            end
-            CImGui.SameLine()
-            if CImGui.Button("Undo")
-                if !isequal(USERDATA["Record"],[""])
-                    state.processRes = GuiMod.get_complexes(USERDATA["Record"])
-                end
-            end
-            CImGui.SameLine()
-            if CImGui.Button("Redo")
-                if !isequal(USERDATA["Record"],[""])
-                    state.processRes = GuiMod.get_complexes(USERDATA["Record"])
+                    GuiMod.post_complex(USERDATA["Record"], state.processRes.complexes[chosenComplexInd].bounds)
+                    state.processRes.complexes = GuiMod.get_complexes(USERDATA["Record"])
                 end
             end
         CImGui.EndGroup()
