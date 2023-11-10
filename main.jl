@@ -389,7 +389,6 @@ function Viewer(state::GuiMod.PlotState)
             CImGui.Text("Выбор диапазона:")
             @c CImGui.InputInt("from", &from)
             @c CImGui.InputInt("to", &to)
-            print(USERDATA["Range"])
 
             if CImGui.Button("Применить")
             
