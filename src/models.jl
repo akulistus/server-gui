@@ -147,17 +147,20 @@ StructTypes.names(::Type{Complexes}) = (
 StructTypes.StructTypes(::Type{Complexes}) = StructTypes.Mutable()
 
 mutable struct ChunkParams
-    HR :: Int
-    RRmean :: Int
-    RRmax :: Int
-    RRmin :: Int
+    HR :: Union{Int,Nothing}
+    QTcFormula :: String
+    RRmean :: Union{Int,Nothing}
+    RRmax :: Union{Int,Nothing}
+    RRmin :: Union{Int,Nothing}
 
-    function ChunkParams(HR::Int = 1, RRmean::Int = 1,
-        RRmax::Int = 1, RRmin::Int = 1)
-        new(HR, RRmean, RRmax, RRmin)
+    function ChunkParams(HR::Union{Int,Nothing} = 1, QTcFormula :: String = "1",
+        RRmean::Union{Int,Nothing} = 1, RRmax::Union{Int,Nothing} = 1,
+        RRmin::Union{Int,Nothing} = 1)
+        new(HR, strip(QTcFormula,['\n']), RRmean, RRmax, RRmin)
         
     end
 end
+StructTypes.StructTypes(::Type{ChunkParams}) = StructTypes.Mutable()
 
 mutable struct Result
     settings :: Settings
