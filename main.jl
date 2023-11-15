@@ -71,7 +71,7 @@ const USERDATA = Dict{String, Any}(
     "ActiveSettings" => GuiMod.Settings(),
     "Cursor" => GuiMod.Cursor(100,100),
     "flag" => CImGui.ImGuiCond_Once,
-    "Range" => (from = Cint(1), to = Cint(200)),
+    "Range" => [Cint(1), Cint(200)],
     "Record" => [""]
 )
 
@@ -135,8 +135,8 @@ function select_records(selected_record_name, records::Vector{GuiMod.HeaderInfo}
             USERDATA["ActiveComplexInd"] = GuiMod.get_representative(record) + 1 # zero-based.
             USERDATA["ActiveSettings"] = [false, false]
             state.record_info = GuiMod.get_record_info(record)
-            USERDATA["Range"].to = Cint(state.record_info.length)
-            state.signal = GuiMod.get_signal(record, Int(USERDATA["Range"].from), Int(USERDATA["Range"].to))
+            USERDATA["Range"][2] = Cint(state.record_info.length)
+            state.signal = GuiMod.get_signal(record, Int(USERDATA["Range"][1]), Int(USERDATA["Range"][2]))
             state.result = GuiMod.get_result(record)
             USERDATA["ActiveSettings"] = GuiMod.get_settings(record)
             state.numChn = length(keys(state.signal))
@@ -378,15 +378,14 @@ function Viewer(state::GuiMod.PlotState)
         counter = 1
 
         CImGui.Text("Настройки:")
-        @cstatic( 
-            offset = Cfloat(USERDATA["ActiveSettings"].QRSsensitivity),
-            spikes = USERDATA["ActiveSettings"].isspikes,
-            isoline = USERDATA["ActiveFilters"][1],
-            fiftyHz = USERDATA["ActiveFilters"][2],
-            thirtyfiveHz = USERDATA["ActiveFilters"][3],
-            from = USERDATA["Range"].from,
-            to = USERDATA["Range"].to,
-            begin
+        offset = Cfloat(USERDATA["ActiveSettings"].QRSsensitivity)
+            spikes = USERDATA["ActiveSettings"].isspikes
+            isoline = USERDATA["ActiveFilters"][1]
+            fiftyHz = USERDATA["ActiveFilters"][2]
+            thirtyfiveHz = USERDATA["ActiveFilters"][3]
+            from = USERDATA["Range"][1]
+            to = USERDATA["Range"][2]
+            
             if @c CImGui.SliderFloat("Настройка чувствительности",&offset, 0, 1)
                 USERDATA["ActiveSettings"].QRSsensitivity = offset
             end
@@ -423,8 +422,9 @@ function Viewer(state::GuiMod.PlotState)
                 end
 
             end
-            USERDATA["ActiveFilters"] = [isoline, fiftyHz]
-        end)
+            USERDATA["ActiveFilters"] = [isoline, fiftyHz, thirtyfiveHz]
+            USERDATA["Range"][1] = from
+            USERDATA["Range"][2] = to
 
         if ImPlot.BeginPlot("Навигационный график","x","y",CImGui.ImVec2(-1,-1))
 
