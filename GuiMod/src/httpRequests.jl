@@ -1,4 +1,3 @@
-__precompile__()
 const USER = "tmp"
 const FILTERS = "isoline,50Hz"
 const PORT = "8089"

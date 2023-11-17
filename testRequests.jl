@@ -1,5 +1,4 @@
-include("./src/GuiMod.jl")
-@time using .GuiMod
+@time using GuiMod
 using ImPlot, HTTP, JSON3
 
 const USER = "tmp"
@@ -11,8 +10,7 @@ const CHANNELS = "I,II,III,aVR,aVL,aVF,V1,V2,V3,V4,V5,V6"
 const PATH = "C:/Users/8cara/OneDrive/Documents/Projects/Server/data/"
 COMMAND = "directories"
 
-
-@time r = HTTP.get("http://$HOST:$PORT/$COMMAND")
+@time r = GuiMod.HTTP.get("http://$HOST:$PORT/$COMMAND")
 @time GuiMod.get_db_list()
 @time GuiMod.select_db("test_db")
 @time GuiMod.get_record_info("MO1_001")

@@ -1,10 +1,4 @@
 [deps]
 CImGui = "5d785b6c-b76f-510e-a07c-3070796c7e87"
-Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 GuiMod = "d602626a-5ba0-4cae-9e8c-aabd0c8204e5"
-HTTP = "cd3eb016-35fb-5094-929b-558a96fad6f3"
 ImPlot = "e8efc688-5342-4ad4-b4ba-9025a731b363"
-JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
-PackageCompiler = "9b87118b-4619-50d2-8e1e-99f35a4d4d9d"
-Setfield = "efcf1570-3423-57d1-acb7-fd33fddbac46"
-StructTypes = "856f2bd8-1eba-4b0a-8007-ebc267875bd4"

@@ -330,6 +330,89 @@ function show_chunk_params(params::GuiMod.ChunkParams)
     CImGui.Separator()
 end
 
+function plot_repr_graph(ch::Vector{Float64}, state::GuiMod.PlotState, counter::Int)
+
+    flags = ImPlotAxisFlags_NoTickLabels | ImPlotAxisFlags_NoDecorations
+    chosenComplexInd = USERDATA["ActiveComplexInd"]
+    cursor = USERDATA["Cursor"]
+    ecg = state.signal
+    ymin = minimum(minimum.(ecg))
+    ymax = maximum(maximum.(ecg))
+    
+    ImPlot.PushStyleVar(ImPlotStyleVar_PlotPadding, CImGui.ImVec2(0,0))
+    ImPlot.SetNextPlotLimits(1, state.xlim.max, ymin, ymax, CImGui.ImGuiCond_Always)
+    
+    if ImPlot.BeginPlot("#Plot"*"$counter","","",CImGui.ImVec2(-1,150);
+        flags = ImPlotFlags_CanvasOnly|ImPlotFlags_NoChild,
+        x_flags = flags, y_flags = flags)
+    
+        if !isnothing(chosenComplexInd)
+    
+            chBounds = state.result.complexes[chosenComplexInd].channel_bounds
+    
+            if chosenComplexInd == 1
+                ibeg = 1
+            else
+                ibeg = get_begin_end_marks(state.result.complexes[chosenComplexInd - 1].bounds,
+                state.result.complexes[chosenComplexInd].bounds, false)
+            end
+    
+            if chosenComplexInd == length(state.result.complexes)
+                iend = lastindex(ecg[1])
+            else
+                iend = get_begin_end_marks(state.result.complexes[chosenComplexInd + 1].bounds, 
+                state.result.complexes[chosenComplexInd].bounds, true)
+            end
+    
+            cycle = state.result.complexes[chosenComplexInd].bounds
+            fields = propertynames(cycle) 
+            ImPlot.PlotLine(Float64.(ch[ibeg:iend]))
+            ImPlot.PlotText("$(ecgChannelsNames[counter])", 100, 0)
+    
+            for field in fields
+                bound = getfield(cycle, field)
+                if isa(bound, Nothing)
+                    continue
+                end
+                ImPlot.PlotVLines("$field", Ref(trunc.(Int,bound) .- (ibeg)), length(bound))
+            end
+    
+            props = propertynames(chBounds)
+            for prop in props
+                field = getfield(chBounds,prop)[counter]
+                if isa(field, Nothing)
+                    continue
+                end
+                ImPlot.PushStyleColor(ImPlotCol_MarkerOutline, ImPlot.GetColormapColor(Color[prop]))
+                ImPlot.PlotScatter([field - ibeg], [ch[field]]; label_id = String(prop))
+                ImPlot.PopStyleColor()
+            end
+    
+            if ImPlot.IsPlotHovered() & CImGui.IsMouseClicked(1)
+                USERDATA["ActiveMark"] = GuiMod.find_mark(cycle, ibeg)
+            elseif ImPlot.IsPlotHovered() & CImGui.IsMouseDown(1)
+                actMark = USERDATA["ActiveMark"]
+                GuiMod.move_mark(cycle, actMark, ibeg, lastindex(ecg[1]))
+                GuiMod.vector_of_structs_to_struct_vector(state)
+            else
+                USERDATA["flag"] = CImGui.ImGuiCond_Once
+            end
+    
+            else
+                ibeg = (cursor.leftBorder < 0) ? 1 : cursor.leftBorder
+                iend = (cursor.rightBorder > lastindex(ecg[1])) ? lastindex(ecg[1]) : cursor.rightBorder
+    
+                ImPlot.PlotLine(Float64.(ch[ibeg:iend]))
+                ImPlot.PlotText("$(ecgChannelsNames[counter])", 100, 0)
+            end
+    
+            state.xlim = (min = ibeg, max = iend-ibeg)
+            ImPlot.EndPlot()
+        end
+    
+    ImPlot.PopStyleVar()
+end
+
 function ui()
 
     dataBases = USERDATA["AvailableDataBases"]
@@ -494,99 +577,32 @@ function Viewer(state::GuiMod.PlotState)
 
     if CImGui.Begin("Просмотр представительного комплекса")
 
-        chosenComplexInd = USERDATA["ActiveComplexInd"]
-        cursor = USERDATA["Cursor"]
-        ecg = state.signal
-        ymin = minimum(minimum.(ecg))
-        ymax = maximum(maximum.(ecg))
-
         CImGui.BeginGroup()
             counter = 1
         CImGui.BeginChild("#Plots", CImGui.ImVec2(-1,-CImGui.GetFrameHeightWithSpacing()))
-            @cstatic( 
-                flags = CImGui.ImGuiTableFlags_BordersOuter | CImGui.ImGuiTableFlags_BordersV | CImGui.ImGuiTableFlags_RowBg),
+            @cstatic(flags = ImPlotAxisFlags_NoTickLabels | ImPlotAxisFlags_NoDecorations),
             begin
-                if CImGui.BeginTable("#Repr", 2, flags, CImGui.ImVec2(-1,0))
-                    CImGui.TableHeadersRow()
-
-                    flags = ImPlotAxisFlags_NoTickLabels | ImPlotAxisFlags_NoDecorations
-                    for ch in ecg
-                        CImGui.TableNextColumn()
-                        ImPlot.PushStyleVar(ImPlotStyleVar_PlotPadding, CImGui.ImVec2(0,0))
-                        ImPlot.SetNextPlotLimits(1, state.xlim.max, ymin, ymax, CImGui.ImGuiCond_Always)
-
-                        if ImPlot.BeginPlot("#Plot"*"$counter","","",CImGui.ImVec2(-1,150);
-                            flags = ImPlotFlags_CanvasOnly|ImPlotFlags_NoChild,
-                            x_flags = flags, y_flags = flags)
-
-                            if !isnothing(chosenComplexInd)
-
-                                chBounds = state.result.complexes[chosenComplexInd].channel_bounds
-
-                                if chosenComplexInd == 1
-                                    ibeg = 1
-                                else
-                                    ibeg = get_begin_end_marks(state.result.complexes[chosenComplexInd - 1].bounds,
-                                    state.result.complexes[chosenComplexInd].bounds, false)
-                                end
-
-                                if chosenComplexInd == length(state.result.complexes)
-                                    iend = lastindex(ecg[1])
-                                else
-                                    iend = get_begin_end_marks(state.result.complexes[chosenComplexInd + 1].bounds, 
-                                    state.result.complexes[chosenComplexInd].bounds, true)
-                                end
-
-                                cycle = state.result.complexes[chosenComplexInd].bounds
-                                fields = propertynames(cycle) 
-                                ImPlot.PlotLine(Float64.(ch[ibeg:iend]))
-                                ImPlot.PlotText("$(ecgChannelsNames[counter])", 100, 0)
-
-                                for field in fields
-                                    bound = getfield(cycle, field)
-                                    if isa(bound, Nothing)
-                                        continue
-                                    end
-                                    ImPlot.PlotVLines("$field", Ref(trunc.(Int,bound) .- (ibeg)), length(bound))
-                                end
-
-                                props = propertynames(chBounds)
-                                for prop in props
-                                    field = getfield(chBounds,prop)[counter]
-                                    if isa(field, Nothing)
-                                        continue
-                                    end
-                                    ImPlot.PushStyleColor(ImPlotCol_MarkerOutline, ImPlot.GetColormapColor(Color[prop]))
-                                    ImPlot.PlotScatter([field - ibeg], [ch[field]]; label_id = String(prop))
-                                    ImPlot.PopStyleColor()
-                                end
-
-                                if ImPlot.IsPlotHovered() & CImGui.IsMouseClicked(1)
-                                    USERDATA["ActiveMark"] = GuiMod.find_mark(cycle, ibeg)
-                                elseif ImPlot.IsPlotHovered() & CImGui.IsMouseDown(1)
-                                    actMark = USERDATA["ActiveMark"]
-                                    GuiMod.move_mark(cycle, actMark, ibeg, lastindex(ecg[1]))
-                                    GuiMod.vector_of_structs_to_struct_vector(state)
-                                else
-                                    USERDATA["flag"] = CImGui.ImGuiCond_Once
-                                end
-
-                            else
-                                ibeg = (cursor.leftBorder < 0) ? 1 : cursor.leftBorder
-                                iend = (cursor.rightBorder > lastindex(ecg[1])) ? lastindex(ecg[1]) : cursor.rightBorder
-
-                                ImPlot.PlotLine(Float64.(ch[ibeg:iend]))
-                                ImPlot.PlotText("$(ecgChannelsNames[counter])", 100, 0)
+                CImGui.BeginGroup()
+                    CImGui.BeginChild("#Plots1", CImGui.ImVec2(500,-CImGui.GetFrameHeightWithSpacing()))
+                        for ch in ecg
+                            if counter == 7
+                                break
                             end
-
-                            state.xlim = (min = ibeg, max = iend-ibeg)
-                            ImPlot.EndPlot()
+                            plot_repr_graph(ch, state, counter)
+                            counter += 1
                         end
-
-                        ImPlot.PopStyleVar()
-                        counter += 1
-                    end
-                    CImGui.EndTable()
+                    CImGui.EndChild()
+                CImGui.EndGroup()
+                if counter > 6
+                    CImGui.SameLine()
+                    CImGui.BeginGroup()
+                        CImGui.BeginChild("#Plots2", CImGui.ImVec2(500,-CImGui.GetFrameHeightWithSpacing()))
+                        for ind in range(7,12)
+                            plot_repr_graph(ecg[ind], state, counter)
+                            counter += 1
+                        end
+                        CImGui.EndChild() 
+                    CImGui.EndGroup()
                 end
             end
 
