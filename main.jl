@@ -1,4 +1,3 @@
-import HTTP, JSON3, StructTypes, Dates
 using CImGui
 using ImPlot
 using CImGui.CSyntax
@@ -6,15 +5,15 @@ using CImGui.CSyntax.CStatic
 using Base.Iterators: partition
 
 include("src/Renderer.jl")
-include("src/GuiMod.jl")
+# include("src/GuiMod.jl")
 using .Renderer
-using .GuiMod
+using GuiMod
 
 # using Pkg
 # Pkg.add(name="ImPlot", rev="main")
 # Pkg.add(name="LibCImGui", version="1.82.2")
 
-tableParser = JSON3.read("src/tableHeader.json", Dict)
+tableParser = GuiMod.JSON3.read("src/tableHeader.json", Dict)
 
 ecgChannelsNames = ["I", "II", "III", "aVR", "aVL", "aVF", "V1", "V2", "V3", "V4", "V5", "V6"]
 
@@ -25,6 +24,17 @@ tableFlags = CImGui.ImGuiTableFlags_SizingStretchSame |
             CImGui.ImGuiTableFlags_RowBg | 
             CImGui.ImGuiTableFlags_NoHostExtendX |
             CImGui.ImGuiTableFlags_SizingFixedFit
+
+Color = Dict(
+    :Q_onset => 1,
+    :Q_end => 1,
+    :R1_onset => 4,
+    :R1_end => 4,
+    :R2_onset => 8,
+    :R2_end => 8,
+    :S_onset => 12,
+    :S_end => 12
+)
 
 state = GuiMod.PlotState(
     [zeros(Float64,9600), zeros(Float64,9600)],
@@ -59,7 +69,6 @@ const USERDATA = Dict{String, Any}(
     "ActiveFilters" => [false, false, false],
     "ActiveSettings" => GuiMod.Settings(),
     "Cursor" => GuiMod.Cursor(100,100),
-    "flag" => CImGui.ImGuiCond_Once,
     "Range" => [Cint(1), Cint(200)],
     "Record" => [""]
 )
@@ -86,21 +95,21 @@ function find_chosen_complex(state :: GuiMod.PlotState, cursor::GuiMod.Cursor)
 end
 
 function select_base(selected_db_name::String, dataBases::Vector{String})
-    
+
     CImGui.Text("Базы:")
 
     for dB in dataBases
-        
+
         label = dB
-        
+
         if CImGui.Selectable(label, selected_db_name == dB)
-            
+
             set_uistate("selected_database",dB)
             if selected_db_name != "None"
                 GuiMod.select_db(selected_db_name)
                 USERDATA["AvailableRecords"] = GuiMod.get_record_list()
             end
-        
+
         end
 
 
@@ -109,30 +118,30 @@ function select_base(selected_db_name::String, dataBases::Vector{String})
 end
 
 function select_records(selected_record_name, records::Vector{GuiMod.HeaderInfo})
-    
+
     CImGui.Text("Записи:")
-    
+
     for record in records
-        
+
         record = record.filename
         label = record
-        
+
         if CImGui.Selectable(label, selected_record_name == record)
-            
+
             set_uistate("selected_record",record)
             USERDATA["Record"] = record
             USERDATA["ActiveComplexInd"] = GuiMod.get_representative(record) + 1 # zero-based.
             USERDATA["ActiveSettings"] = [false, false]
             state.record_info = GuiMod.get_record_info(record)
             USERDATA["Range"][2] = Cint(state.record_info.length)
-            state.signal = GuiMod.get_signal(record, Int(USERDATA["Range"][1]), Int(USERDATA["Range"][2]))
+            state.signal = GuiMod.get_signal(record, 1, state.record_info.length)
             state.result = GuiMod.get_result(record)
             USERDATA["ActiveSettings"] = GuiMod.get_settings(record)
             state.numChn = length(keys(state.signal))
             GuiMod.vector_of_structs_to_struct_vector(state)
-        
+
         end
-    
+
     end
 end
 
@@ -140,7 +149,7 @@ function show_stats(wigit_name::String, info::GuiMod.HeaderInfo)
 
     CImGui.Text("Stats:")
     CImGui.BeginTable(wigit_name,2, tableFlags)
-    
+
     for property in propertynames(info)
         CImGui.TableNextRow()
         CImGui.TableSetColumnIndex(0)
@@ -148,7 +157,7 @@ function show_stats(wigit_name::String, info::GuiMod.HeaderInfo)
         CImGui.TableSetColumnIndex(1)
         CImGui.Text("$(getfield(info,property))")
     end
-    
+
     CImGui.EndTable()
 end
 
@@ -167,7 +176,7 @@ function parse_process_data(data :: Any)
 end
 
 function show_parameters(wigitName :: String, complexes :: Vector{GuiMod.Complexes}, applySelection::Bool)
-    
+
     params = complexes[1].params
 
     propNames = propertynames(params)
@@ -183,20 +192,21 @@ function show_parameters(wigitName :: String, complexes :: Vector{GuiMod.Complex
     CImGui.Separator()
 
     for complex_ind in eachindex(complexes)
-        
+
         if CImGui.Selectable("$complex_ind"*repeat("\n", num_of_strs_in_one_col), complex_ind == USERDATA["ActiveComplexInd"], CImGui.ImGuiSelectableFlags_SpanAllColumns)
             USERDATA["ActiveComplexInd"] = complex_ind
         end
         CImGui.NextColumn()
         params = complexes[complex_ind].params
         for headers in propNames
-            
+
             str = join(collect(map(x -> String(x), headers)), "\n")
             CImGui.Text("$str")
             CImGui.NextColumn()
             str = join(collect(map(x -> parse_process_data(getfield(params, x)), headers)), "\n")
             CImGui.Text("$str")
             CImGui.NextColumn()
+
         end
         CImGui.Separator()
     end
@@ -246,7 +256,6 @@ function get_begin_end_marks(cycle_bound::GuiMod.GlobalBounds, cycle_main::GuiMo
         return 1
     end
 
-
     if min
         sort!(arr_bound)
         for item in arr_bound
@@ -274,7 +283,6 @@ function show_shifts(propertys::Vector{Symbol}, complexes :: Vector{GuiMod.Compl
     end
     CImGui.Separator()
 
-
     for complexInd in eachindex(complexes)
         s = ""
 
@@ -285,7 +293,7 @@ function show_shifts(propertys::Vector{Symbol}, complexes :: Vector{GuiMod.Compl
             USERDATA["ActiveComplexInd"] = complexInd
         end
         CImGui.NextColumn()
-        
+
         for ind in eachindex(getfield(complexes[complexInd].channel_params, propertys[1]))
             s = ""
             for item in propertys
@@ -301,38 +309,59 @@ function show_shifts(propertys::Vector{Symbol}, complexes :: Vector{GuiMod.Compl
     CImGui.Separator()
 end
 
+function show_chunk_params(params::GuiMod.ChunkParams)
+
+    param_values = ""
+    CImGui.Columns(2,"#chunk")
+    CImGui.Separator()
+    for header in ["Параметры","Значения"]
+        CImGui.Text("$header"); CImGui.NextColumn()
+    end
+    CImGui.Separator()
+
+    propertys = propertynames(params)
+    param_names = join(propertys, "\n")
+    for item in propertys
+        param_values = "$param_values"*"$(getfield(params, item))\n"
+    end
+
+    CImGui.Text("$param_names"); CImGui.NextColumn()
+    CImGui.Text("$param_values")
+    CImGui.Separator()
+end
+
 function ui()
 
     dataBases = USERDATA["AvailableDataBases"]
     records = USERDATA["AvailableRecords"]
     CImGui.BeginTabBar("##Tabs")
-        
+
         if CImGui.BeginTabItem("Базы и записи")
-            
+
             CImGui.BeginGroup()
-                
+
                 CImGui.BeginChild("Bases", CImGui.ImVec2(150, -CImGui.GetFrameHeightWithSpacing()), true)
-                    
+
                     selected_db_name = get_uistate("selected_database", "None") 
                     select_base(selected_db_name, dataBases)
-                
+
                 CImGui.EndChild()
-            
+
             CImGui.EndGroup()
             CImGui.SameLine()
             CImGui.BeginGroup()
-                
+
                 CImGui.BeginChild("Records", CImGui.ImVec2(150, -CImGui.GetFrameHeightWithSpacing()), true)
-                    
+
                     selected_record_name = get_uistate("selected_record", "None")
                     select_records(selected_record_name, records)
-                
+
                 CImGui.EndChild()
-            
+
             CImGui.EndGroup()
             CImGui.SameLine()
             CImGui.BeginGroup()
-                
+
                 show_stats("BaseStats", state.record_info)
                 CImGui.Separator()
 
@@ -341,11 +370,11 @@ function ui()
             if CImGui.Button("Обновить")
                 dataBases = GuiMod.get_db_list()
             end
-        
+
         CImGui.EndTabItem()
-        
+
         end
-    
+
     CImGui.EndTabBar()
 
     USERDATA["AvailableDataBases"] = dataBases
@@ -354,6 +383,7 @@ function ui()
     ParamsTable(state)
     AmpTable(state)
     ShiftsTable(state)
+    ChunkParamsTable(state)
 
     RepresentatieveComplexParamsTable(state, USERDATA["ActiveComplexInd"])
 end
@@ -363,61 +393,74 @@ function Viewer(state::GuiMod.PlotState)
     if CImGui.Begin("Просмотр")
 
         ecg = state.signal
-        flag = USERDATA["flag"]
         cursor = USERDATA["Cursor"]
         counter = 1
 
         CImGui.Text("Настройки:")
-        @cstatic( 
-            offset = Cfloat(USERDATA["ActiveSettings"].QRSsensitivity),
-            spikes = USERDATA["ActiveSettings"].isspikes,
-            isoline = USERDATA["ActiveFilters"][1],
-            fiftyHz = USERDATA["ActiveFilters"][2],
-            thirtyfiveHz = USERDATA["ActiveFilters"][3],
-            from = USERDATA["Range"][1],
-            to = USERDATA["Range"][2],
-            begin
-            if @c CImGui.SliderFloat("Настройка чувствительности",&offset, 0, 1)
-                USERDATA["ActiveSettings"].QRSsensitivity = offset
+        offset = Cfloat(USERDATA["ActiveSettings"].QRSsensitivity)
+        spikes = USERDATA["ActiveSettings"].isspikes
+        isoline = USERDATA["ActiveFilters"][1]
+        fiftyHz = USERDATA["ActiveFilters"][2]
+        thirtyfiveHz = USERDATA["ActiveFilters"][3]
+        from = USERDATA["Range"][1]
+        to = USERDATA["Range"][2]
+
+        if @c CImGui.SliderFloat("Настройка чувствительности",&offset, 0, 1)
+            USERDATA["ActiveSettings"].QRSsensitivity = offset
+        end
+        CImGui.SameLine()
+        @c CImGui.Checkbox("IsSpikes", &spikes)
+        CImGui.Text("Выбор фильтра:")
+        @c CImGui.Checkbox("isoline", &isoline)
+        @c CImGui.Checkbox("50Hz", &fiftyHz)
+        @c CImGui.Checkbox("35Hz", &thirtyfiveHz)
+        CImGui.Text("Выбор диапазона:")
+        @c CImGui.InputInt("from", &from)
+        @c CImGui.InputInt("to", &to)
+
+        if CImGui.Button("Применить")
+
+            filters = Vector{String}()
+            if isoline
+                push!(filters, "isoline")
             end
-            CImGui.SameLine()
-            @c CImGui.Checkbox("IsSpikes", &spikes)
-            CImGui.Text("Выбор фильтра:")
-            @c CImGui.Checkbox("isoline", &isoline)
-            @c CImGui.Checkbox("50Hz", &fiftyHz)
-            @c CImGui.Checkbox("35Hz", &thirtyfiveHz)
-            CImGui.Text("Выбор диапазона:")
-            @c CImGui.InputInt("from", &from)
-            @c CImGui.InputInt("to", &to)
-            print(USERDATA["Range"])
 
-            if CImGui.Button("Применить")
-            
-                filters = Vector{String}()
-                if isoline
-                    push!(filters, "isoline")
-                end
-                
-                if fiftyHz
-                    push!(filters, "50hz")
-                end
-
-                if thirtyfiveHz
-                    push!(filters, "35hz")
-                end
-                
-                if !isequal(USERDATA["Record"], [""]) && !isequal(USERDATA["ActiveSettings"], [""])
-                    GuiMod.change_settings(USERDATA["Record"], USERDATA["ActiveSettings"])
-                    state.signal = GuiMod.get_signal(USERDATA["Record"], 1, 5000, join(filters, ","))
-                    state.result.complexes = GuiMod.get_complexes(USERDATA["Record"])
-                end
-
+            if fiftyHz
+                push!(filters, "50hz")
             end
-            USERDATA["ActiveFilters"] = [isoline, fiftyHz]
-        end)
-    
-        if ImPlot.BeginPlot("Навигационный график","x","y",CImGui.ImVec2(-1,-1))
-            
+
+            if thirtyfiveHz
+                push!(filters, "35hz")
+            end
+
+            if from < 0
+                from = 1
+            end
+
+            if to > state.record_info.length
+                to = state.record_info.length
+            end
+
+            if !isequal(USERDATA["Record"], [""]) && !isequal(USERDATA["ActiveSettings"], [""])
+                GuiMod.change_settings(USERDATA["Record"], USERDATA["ActiveSettings"])
+                USERDATA["ActiveComplexInd"] = 1
+                state.signal = GuiMod.get_signal(USERDATA["Record"], 1, state.record_info.length, join(filters, ","))
+                try
+                    state.result.chunk_params = GuiMod.get_chunk_params(USERDATA["Record"], Int64(from), Int64(to))
+                catch
+                end
+                state.result.complexes = GuiMod.get_complexes(USERDATA["Record"])
+            end
+        end
+        USERDATA["ActiveFilters"] = [isoline, fiftyHz, thirtyfiveHz]
+        USERDATA["Range"][1] = from
+        USERDATA["Range"][2] = to
+
+        flags = ImPlotAxisFlags_NoTickLabels | ImPlotAxisFlags_NoDecorations
+        if ImPlot.BeginPlot("Навигационный график","x","y",CImGui.ImVec2(-1,-1);
+            flags = ImPlotFlags_NoLegend|ImPlotFlags_NoChild,
+            y_flags=flags)
+
                 k = 0
                 for ch in ecg
                     ImPlot.PlotLine(Float64.(ch.-k))
@@ -426,21 +469,12 @@ function Viewer(state::GuiMod.PlotState)
                     k += 2000
                 end
 
-                #Somehow need to fix this.
                 for name in propertynames(state.result.complexes[1].bounds)
                     bound = getfield(state, name)
                     if isa(bound, Nothing) || isa(bound, Vector{Nothing})
                         continue
                     end
                     ImPlot.PlotVLines("$name", trunc.(Int,bound), length(bound))
-                end
-
-                for index in eachindex(state.QRS_onset)
-                    k = 0
-                    for ch in eachindex(ecg)
-                        # ImPlot.PlotText("$index", state.QRS_onset[index], -k)
-                        k += 2000
-                    end
                 end
 
                 ImPlot.PlotVLines("Cursor", Ref(cursor.pos), 1)
@@ -462,112 +496,103 @@ function Viewer(state::GuiMod.PlotState)
 
         chosenComplexInd = USERDATA["ActiveComplexInd"]
         cursor = USERDATA["Cursor"]
-        flag = USERDATA["flag"]
-        lims = (xlim = state.xlim, ylim = state.ylim)
         ecg = state.signal
+        ymin = minimum(minimum.(ecg))
+        ymax = maximum(maximum.(ecg))
 
         CImGui.BeginGroup()
-            ImPlot.SetNextPlotLimits(lims.xlim.min, lims.xlim.max, lims.ylim.min, lims.ylim.max, flag)
-            if ImPlot.BeginPlot("Представительный комплекс","x","y",CImGui.ImVec2(-1,-CImGui.GetFrameHeightWithSpacing()))
-               
-                counter = 1
-                
-                if !isnothing(chosenComplexInd)
+            counter = 1
+        CImGui.BeginChild("#Plots", CImGui.ImVec2(-1,-CImGui.GetFrameHeightWithSpacing()))
+            @cstatic( 
+                flags = CImGui.ImGuiTableFlags_BordersOuter | CImGui.ImGuiTableFlags_BordersV | CImGui.ImGuiTableFlags_RowBg),
+            begin
+                if CImGui.BeginTable("#Repr", 2, flags, CImGui.ImVec2(-1,0))
+                    CImGui.TableHeadersRow()
 
-                    chBounds = state.result.complexes[chosenComplexInd].channel_bounds
-                    
-                    if chosenComplexInd == 1
-                        ibeg = 1
-                    else
-                        ibeg = get_begin_end_marks(state.result.complexes[chosenComplexInd - 1].bounds,
-                        state.result.complexes[chosenComplexInd].bounds, false)
-                    end
-
-                    if chosenComplexInd == length(state.result.complexes)
-                        iend = lastindex(ecg[1])
-                    else
-                        iend = get_begin_end_marks(state.result.complexes[chosenComplexInd + 1].bounds, 
-                        state.result.complexes[chosenComplexInd].bounds, true)
-                    end
-
-                    cycle = state.result.complexes[chosenComplexInd].bounds
-                    fields = propertynames(cycle) 
-                    
-                    k = 0
+                    flags = ImPlotAxisFlags_NoTickLabels | ImPlotAxisFlags_NoDecorations
                     for ch in ecg
-                        ImPlot.PlotLine(Float64.(ch[ibeg:iend].-k))
-                        ImPlot.PlotText("$(ecgChannelsNames[counter])", 10, -k)
-                        counter += 1
-                        k += 2000
-                    end
-                    
-                    for field in fields
-                        bound = getfield(cycle, field)
-                        if isa(bound, Nothing)
-                            continue
-                        end
-                        ImPlot.PlotVLines("$field", Ref(trunc.(Int,bound) .- (ibeg)), length(bound))
-                    end
+                        CImGui.TableNextColumn()
+                        ImPlot.PushStyleVar(ImPlotStyleVar_PlotPadding, CImGui.ImVec2(0,0))
+                        ImPlot.SetNextPlotLimits(1, state.xlim.max, ymin, ymax, CImGui.ImGuiCond_Always)
 
-                    props = propertynames(chBounds)
-                    for prop in props
-                        field = getfield(chBounds,prop)
-                        arrX = Vector{Int}()
-                        arrY = Vector{Float64}()
-                        k = 0
-                        for ind in eachindex(field)
-                            item = field[ind]
-                            if isa(item, Nothing)
-                                continue
+                        if ImPlot.BeginPlot("#Plot"*"$counter","","",CImGui.ImVec2(-1,150);
+                            flags = ImPlotFlags_CanvasOnly|ImPlotFlags_NoChild,
+                            x_flags = flags, y_flags = flags)
+
+                            if !isnothing(chosenComplexInd)
+
+                                chBounds = state.result.complexes[chosenComplexInd].channel_bounds
+
+                                if chosenComplexInd == 1
+                                    ibeg = 1
+                                else
+                                    ibeg = get_begin_end_marks(state.result.complexes[chosenComplexInd - 1].bounds,
+                                    state.result.complexes[chosenComplexInd].bounds, false)
+                                end
+
+                                if chosenComplexInd == length(state.result.complexes)
+                                    iend = lastindex(ecg[1])
+                                else
+                                    iend = get_begin_end_marks(state.result.complexes[chosenComplexInd + 1].bounds, 
+                                    state.result.complexes[chosenComplexInd].bounds, true)
+                                end
+
+                                cycle = state.result.complexes[chosenComplexInd].bounds
+                                fields = propertynames(cycle) 
+                                ImPlot.PlotLine(Float64.(ch[ibeg:iend]))
+                                ImPlot.PlotText("$(ecgChannelsNames[counter])", 100, 0)
+
+                                for field in fields
+                                    bound = getfield(cycle, field)
+                                    if isa(bound, Nothing)
+                                        continue
+                                    end
+                                    ImPlot.PlotVLines("$field", Ref(trunc.(Int,bound) .- (ibeg)), length(bound))
+                                end
+
+                                props = propertynames(chBounds)
+                                for prop in props
+                                    field = getfield(chBounds,prop)[counter]
+                                    if isa(field, Nothing)
+                                        continue
+                                    end
+                                    ImPlot.PushStyleColor(ImPlotCol_MarkerOutline, ImPlot.GetColormapColor(Color[prop]))
+                                    ImPlot.PlotScatter([field - ibeg], [ch[field]]; label_id = String(prop))
+                                    ImPlot.PopStyleColor()
+                                end
+
+                                if ImPlot.IsPlotHovered() & CImGui.IsMouseClicked(1)
+                                    USERDATA["ActiveMark"] = GuiMod.find_mark(cycle, ibeg)
+                                elseif ImPlot.IsPlotHovered() & CImGui.IsMouseDown(1)
+                                    actMark = USERDATA["ActiveMark"]
+                                    GuiMod.move_mark(cycle, actMark, ibeg, lastindex(ecg[1]))
+                                    GuiMod.vector_of_structs_to_struct_vector(state)
+                                else
+                                    USERDATA["flag"] = CImGui.ImGuiCond_Once
+                                end
+
+                            else
+                                ibeg = (cursor.leftBorder < 0) ? 1 : cursor.leftBorder
+                                iend = (cursor.rightBorder > lastindex(ecg[1])) ? lastindex(ecg[1]) : cursor.rightBorder
+
+                                ImPlot.PlotLine(Float64.(ch[ibeg:iend]))
+                                ImPlot.PlotText("$(ecgChannelsNames[counter])", 100, 0)
                             end
-                            append!(arrX, trunc(Int,item) - ibeg)
-                            append!(arrY, ecg[ind][item] - k)
-                            k += 2000
+
+                            state.xlim = (min = ibeg, max = iend-ibeg)
+                            ImPlot.EndPlot()
                         end
-                        ImPlot.PlotScatter(arrX, arrY; label_id = String(prop))
-                    end
 
-                    if ImPlot.IsPlotHovered() && CImGui.IsMouseClicked(0)
-                        USERDATA["flag"] = CImGui.ImGuiCond_Always
-                        USERDATA["ActiveMark"] = GuiMod.find_mark(cycle, ibeg)
-                    elseif ImPlot.IsPlotHovered() && CImGui.IsMouseDown(0)
-                        USERDATA["flag"] = CImGui.ImGuiCond_Always
-                        actMark = USERDATA["ActiveMark"]
-                        GuiMod.move_mark(cycle, actMark, ibeg, lastindex(ecg[1]))
-                        GuiMod.vector_of_structs_to_struct_vector(state)
-                    else
-                        USERDATA["flag"] = CImGui.ImGuiCond_Once
-                    end
-
-                else
-
-                    ibeg = (cursor.leftBorder < 0) ? 1 : cursor.leftBorder
-                    iend = (cursor.rightBorder > lastindex(ecg[1])) ? lastindex(ecg[1]) : cursor.rightBorder
-
-                    k = 0
-                    counter = 1
-                    for ch in ecg
-                        ImPlot.PlotLine(Float64.(ch[ibeg:iend].-k))
-                        ImPlot.PlotText("$(ecgChannelsNames[counter])", 10, -k)
+                        ImPlot.PopStyleVar()
                         counter += 1
-                        k += 2000
                     end
+                    CImGui.EndTable()
                 end
-
-                limits = ImPlot.GetPlotLimits()
-                x1, x2 = limits.X.Min, limits.X.Max
-                y1, y2 = limits.Y.Min, limits.Y.Max
-
-                state.xlim = (min = x1, max = x2)
-                state.ylim = (min = y1, max = y2)
-
-                if ImPlot.IsPlotHovered() && CImGui.IsMouseDoubleClicked(0)
-                    state.xlim = (min = 1, max = iend-ibeg)
-                    state.ylim = (min = -12*2000, max = maximum(ecg[1])*1.2)
-                end
-
-                ImPlot.EndPlot()
             end
+
+            CImGui.Separator()
+            CImGui.EndChild()
+            CImGui.EndGroup()
 
             if CImGui.Button("Применить изменения")
                 if !isequal(USERDATA["Record"],[""])
@@ -575,11 +600,9 @@ function Viewer(state::GuiMod.PlotState)
                     state.result.complexes = GuiMod.get_complexes(USERDATA["Record"])
                 end
             end
-        CImGui.EndGroup()
-
         CImGui.End()
     end
-    
+
 end
 
 function ParamsTable(state::GuiMod.PlotState)
@@ -603,10 +626,16 @@ function AmpTable(state::GuiMod.PlotState)
     end
 end
 
+function ChunkParamsTable(state::GuiMod.PlotState)
+    if CImGui.Begin("ChunkParams")
+        show_chunk_params(state.result.chunk_params)
+    end
+end
+
 function RepresentatieveComplexParamsTable(state::GuiMod.PlotState, complexInd :: Union{Int, Nothing})
     
     if CImGui.Begin("Параметры комплекса")
-        
+
         if !isnothing(complexInd)
             complex = state.result.complexes[complexInd]
             show_parameters("#SingleParamTable", [complex], false)
