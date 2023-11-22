@@ -26,14 +26,14 @@ tableFlags = CImGui.ImGuiTableFlags_SizingStretchSame |
             CImGui.ImGuiTableFlags_SizingFixedFit
 
 Color = Dict(
-    :Q_onset => 1,
-    :Q_end => 1,
-    :R1_onset => 4,
-    :R1_end => 4,
-    :R2_onset => 8,
-    :R2_end => 8,
-    :S_onset => 12,
-    :S_end => 12
+    :Q_onset => CImGui.ImVec4(1.0, 0.5, 0.33, 0.5),
+    :Q_end => CImGui.ImVec4(1.0, 0.5, 0.33, 0.5),
+    :R1_onset => CImGui.ImVec4(0.75, 0.0, 0.95, 0.5),
+    :R1_end => CImGui.ImVec4(0.75, 0.0, 0.95, 0.5),
+    :R2_onset => CImGui.ImVec4(0.0, 0.0, 1.0, 0.5),
+    :R2_end => CImGui.ImVec4(0.0, 0.0, 1.0, 0.5),
+    :S_onset => CImGui.ImVec4(0.0, 1.0, 0.33, 0.5),
+    :S_end => CImGui.ImVec4(0.0, 1.0, 0.33, 0.5)
 )
 
 state = GuiMod.PlotState(
@@ -68,6 +68,7 @@ const USERDATA = Dict{String, Any}(
     "ActiveCursor" =>[""],
     "ActiveFilters" => [false, false, false],
     "ActiveSettings" => GuiMod.Settings(),
+    "RepresentativeCompInd" => 1,
     "Cursor" => GuiMod.Cursor(100,100),
     "Range" => [Cint(1), Cint(200)],
     "Record" => [""]
@@ -131,6 +132,7 @@ function select_records(selected_record_name, records::Vector{GuiMod.HeaderInfo}
             set_uistate("selected_record",record)
             USERDATA["Record"] = record
             USERDATA["ActiveComplexInd"] = GuiMod.get_representative(record) + 1 # zero-based.
+            USERDATA["RepresentativeCompInd"] = GuiMod.get_representative(record) + 1
             USERDATA["ActiveSettings"] = [false, false]
             state.record_info = GuiMod.get_record_info(record)
             USERDATA["Range"][2] = Cint(state.record_info.length)
@@ -383,7 +385,7 @@ function plot_repr_graph(ch::Vector{Float64}, state::GuiMod.PlotState, counter::
                 if isa(field, Nothing)
                     continue
                 end
-                ImPlot.PushStyleColor(ImPlotCol_MarkerOutline, ImPlot.GetColormapColor(Color[prop]))
+                ImPlot.PushStyleColor(ImPlotCol_MarkerOutline, Color[prop])
                 ImPlot.PlotScatter([field - ibeg], [ch[field]]; label_id = String(prop))
                 ImPlot.PopStyleColor()
             end
@@ -524,6 +526,7 @@ function Viewer(state::GuiMod.PlotState)
                 to = state.record_info.length
             end
 
+            
             if !isequal(USERDATA["Record"], [""]) && !isequal(USERDATA["ActiveSettings"], [""])
                 GuiMod.change_settings(USERDATA["Record"], USERDATA["ActiveSettings"])
                 USERDATA["ActiveComplexInd"] = 1
@@ -535,6 +538,7 @@ function Viewer(state::GuiMod.PlotState)
                 state.result.complexes = GuiMod.get_complexes(USERDATA["Record"])
             end
         end
+        CImGui.Text("Номер представительного комплекса: $(USERDATA["RepresentativeCompInd"])")
         USERDATA["ActiveFilters"] = [isoline, fiftyHz, thirtyfiveHz]
         USERDATA["Range"][1] = from
         USERDATA["Range"][2] = to
@@ -583,7 +587,7 @@ function Viewer(state::GuiMod.PlotState)
             @cstatic(flags = ImPlotAxisFlags_NoTickLabels | ImPlotAxisFlags_NoDecorations),
             begin
                 CImGui.BeginGroup()
-                    CImGui.BeginChild("#Plots1", CImGui.ImVec2(500,-CImGui.GetFrameHeightWithSpacing()))
+                    CImGui.BeginChild("#Plots1", CImGui.ImVec2(CImGui.GetWindowSize().x/2,-CImGui.GetFrameHeightWithSpacing()))
                         for ch in ecg
                             if counter == 7
                                 break
@@ -596,7 +600,7 @@ function Viewer(state::GuiMod.PlotState)
                 if counter > 6
                     CImGui.SameLine()
                     CImGui.BeginGroup()
-                        CImGui.BeginChild("#Plots2", CImGui.ImVec2(500,-CImGui.GetFrameHeightWithSpacing()))
+                        CImGui.BeginChild("#Plots2", CImGui.ImVec2(-1,-CImGui.GetFrameHeightWithSpacing()))
                         for ind in range(7,12)
                             plot_repr_graph(ecg[ind], state, counter)
                             counter += 1
@@ -610,6 +614,7 @@ function Viewer(state::GuiMod.PlotState)
             CImGui.EndChild()
             CImGui.EndGroup()
 
+            chosenComplexInd = USERDATA["ActiveComplexInd"]
             if CImGui.Button("Применить изменения")
                 if !isequal(USERDATA["Record"],[""])
                     GuiMod.post_complex(USERDATA["Record"], state.result.complexes[chosenComplexInd].bounds)
