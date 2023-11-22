@@ -283,23 +283,29 @@ end
 
 function show_shifts(propertys::Vector{Symbol}, complexes :: Vector{GuiMod.Complexes}, applySelection::Bool)
 
-    CImGui.Columns(13,"#shifts")
+    CImGui.Columns(length(ecgChannelsNames)+2,"#shifts")
     CImGui.Separator()
     headers = ecgChannelsNames
-    for header in ["Параметры"; headers]
+    for header in [["Номер","Параметры"]; headers]
         CImGui.Text("$header"); CImGui.NextColumn()
     end
     CImGui.Separator()
 
     for complexInd in eachindex(complexes)
+        num = complexInd
+        if length(complexes) == 1
+            num = USERDATA["ActiveComplexInd"]
+        end
         s = ""
 
         for item in propertys
             s *= "$(String(item))\n"
         end
-        if CImGui.Selectable("$s#$complexInd", complexInd == USERDATA["ActiveComplexInd"], CImGui.ImGuiSelectableFlags_SpanAllColumns)
-            USERDATA["ActiveComplexInd"] = complexInd
+        if CImGui.Selectable("#$num"*repeat("\n", length(propertys)), complexInd == USERDATA["ActiveComplexInd"], CImGui.ImGuiSelectableFlags_SpanAllColumns)
+            USERDATA["ActiveComplexInd"] = num
         end
+        CImGui.NextColumn()
+        CImGui.Text("$s")
         CImGui.NextColumn()
 
         for ind in eachindex(getfield(complexes[complexInd].channel_params, propertys[1]))
