@@ -356,7 +356,7 @@ function plot_repr_graph(ch::Vector{Float64}, state::GuiMod.PlotState, counter::
     ImPlot.PushStyleVar(ImPlotStyleVar_PlotPadding, CImGui.ImVec2(0,0))
     ImPlot.SetNextPlotLimits(1, state.xlim.max, ymin, ymax, CImGui.ImGuiCond_Always)
     
-    if ImPlot.BeginPlot("#Plot"*"$counter","","",CImGui.ImVec2(-1,150);
+    if ImPlot.BeginPlot("#Plot"*"$counter","","",CImGui.ImVec2(-1,ceil(CImGui.GetWindowHeight()/6));
         flags = ImPlotFlags_CanvasOnly|ImPlotFlags_NoChild,
         x_flags = flags, y_flags = flags)
     
@@ -487,9 +487,10 @@ end
 
 function Viewer(state::GuiMod.PlotState)
 
+    ecg = state.signal
+    
     if CImGui.Begin("Просмотр")
 
-        ecg = state.signal
         cursor = USERDATA["Cursor"]
         counter = 1
 

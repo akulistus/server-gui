@@ -1,11 +1,13 @@
 # Настройка
 1. Необходимо установить путь до директории, содрежащей сигналы.
-Для этого потребутеся измеить константное значение пременной PATH в модуле *src/httpRequests.jl*:
+Для этого потребутеся задать переменную среды. В Julia REPL написать следующее:
 
 ``` julia
-const PATH = "path/to/your/directory"
+ENV["PATH"] = "path/to/your/directory"
 ```
-2. При необходимости можно изменить *USER, PORT, HOST* в модуле *src/httpRequests.jl*:
+Только после этого запускать gui из main.jl.
+
+2. При необходимости можно изменить *USER, PORT, HOST* в модуле *GuiMoD/src/httpRequests.jl*:
 ``` julia
 const USER = "Your username"
 const PORT = "Your port"
