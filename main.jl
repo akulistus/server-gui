@@ -283,23 +283,29 @@ end
 
 function show_shifts(propertys::Vector{Symbol}, complexes :: Vector{GuiMod.Complexes}, applySelection::Bool)
 
-    CImGui.Columns(13,"#shifts")
+    CImGui.Columns(length(ecgChannelsNames)+2,"#shifts")
     CImGui.Separator()
     headers = ecgChannelsNames
-    for header in ["Параметры"; headers]
+    for header in [["Номер","Параметры"]; headers]
         CImGui.Text("$header"); CImGui.NextColumn()
     end
     CImGui.Separator()
 
     for complexInd in eachindex(complexes)
+        num = complexInd
+        if length(complexes) == 1
+            num = USERDATA["ActiveComplexInd"]
+        end
         s = ""
 
         for item in propertys
             s *= "$(String(item))\n"
         end
-        if CImGui.Selectable("$s#$complexInd", complexInd == USERDATA["ActiveComplexInd"], CImGui.ImGuiSelectableFlags_SpanAllColumns)
-            USERDATA["ActiveComplexInd"] = complexInd
+        if CImGui.Selectable("#$num"*repeat("\n", length(propertys)), complexInd == USERDATA["ActiveComplexInd"], CImGui.ImGuiSelectableFlags_SpanAllColumns)
+            USERDATA["ActiveComplexInd"] = num
         end
+        CImGui.NextColumn()
+        CImGui.Text("$s")
         CImGui.NextColumn()
 
         for ind in eachindex(getfield(complexes[complexInd].channel_params, propertys[1]))
@@ -350,7 +356,7 @@ function plot_repr_graph(ch::Vector{Float64}, state::GuiMod.PlotState, counter::
     ImPlot.PushStyleVar(ImPlotStyleVar_PlotPadding, CImGui.ImVec2(0,0))
     ImPlot.SetNextPlotLimits(1, state.xlim.max, ymin, ymax, CImGui.ImGuiCond_Always)
     
-    if ImPlot.BeginPlot("#Plot"*"$counter","","",CImGui.ImVec2(-1,150);
+    if ImPlot.BeginPlot("#Plot"*"$counter","","",CImGui.ImVec2(-1,ceil(CImGui.GetWindowHeight()/6));
         flags = ImPlotFlags_CanvasOnly|ImPlotFlags_NoChild,
         x_flags = flags, y_flags = flags)
     
@@ -481,9 +487,10 @@ end
 
 function Viewer(state::GuiMod.PlotState)
 
+    ecg = state.signal
+    
     if CImGui.Begin("Просмотр")
 
-        ecg = state.signal
         cursor = USERDATA["Cursor"]
         counter = 1
 
