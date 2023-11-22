@@ -1,5 +1,3 @@
-# Путаются данные, когда две быза и более.
-
 function get_db_list()
     r = HTTP.get("http://$HOST:$PORT/directories")
     str = String(r.body)
