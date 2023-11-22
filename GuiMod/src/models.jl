@@ -1,5 +1,3 @@
-using StructTypes
-
 mutable struct HeaderInfo
     filename :: String
     timestart :: String

@@ -1,31 +1,17 @@
-import HTTP, JSON3
-using StructTypes
-include("models.jl")
-
-const USER = "tmp"
-const FILTERS = "isoline,50Hz"
-const PORT = "8089"
-const HOST = "0.0.0.0"
-const CHANNELS = "I,II,III,aVR,aVL,aVF,V1,V2,V3,V4,V5,V6"
-# path to directory that contains all the db's
-const PATH = "C:/Users/8cara/OneDrive/Documents/Projects/Server/data/"
-
+# Путаются данные, когда две быза и более.
 
 function get_db_list()
-    COMMAND = "directories"
-    r = HTTP.get("http://$HOST:$PORT/$COMMAND")
+    r = HTTP.get("http://$HOST:$PORT/directories")
     str = String(r.body)
     return JSON3.read(str,Vector{String})
 end
 
 function select_db(DIRECTORY::String)
-    COMMAND = "directory"
-    HTTP.post("http://$HOST:$PORT/$USER/$COMMAND"; body = join([PATH, DIRECTORY]))
+    HTTP.post("http://$HOST:$PORT/$USER/directory"; body = join([PATH, DIRECTORY]))
 end
 
 function get_record_list()
-    COMMAND = "records"
-    r = HTTP.get("http://$HOST:$PORT/$USER/$COMMAND")
+    r = HTTP.get("http://$HOST:$PORT/$USER/records")
     str = String(r.body)
     return JSON3.read(str, Vector{HeaderInfo})
 end
