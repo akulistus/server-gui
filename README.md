@@ -2,7 +2,7 @@
 1. Необходимо установить путь до директории, содержащей сигналы. Для этого потребуется задать переменную среды. В Julia REPL написать следующее:
 
 ``` julia
-ENV["PATH"] = "path/to/your/directory"
+ENV["PATH_TO_DIRECTORY"] = "path/to/your/directory"
 ```
 Только после этого запускать gui из main.jl.
 
