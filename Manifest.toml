@@ -2,7 +2,7 @@
 
 julia_version = "1.9.3"
 manifest_format = "2.0"
-project_hash = "3198074991775f2f0d7f8e9eb5ef1ba66e7b88ad"
+project_hash = "5b5063e3df07d6099c9b4464a28edd5db79d861c"
 
 [[deps.ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
@@ -102,7 +102,7 @@ uuid = "0656b61e-2033-5cc2-a64a-77c0f6c09b89"
 version = "3.3.8+0"
 
 [[deps.GuiMod]]
-deps = ["Dates", "HTTP", "ImPlot", "JSON3", "StructTypes"]
+deps = ["Dates", "HTTP", "ImPlot", "JSON3", "PrecompileTools", "StructTypes"]
 path = "GuiMod"
 uuid = "d602626a-5ba0-4cae-9e8c-aabd0c8204e5"
 version = "0.1.0"
@@ -355,10 +355,13 @@ deps = ["InteractiveUtils", "Logging", "Random", "Serialization"]
 uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [[deps.TranscodingStreams]]
-deps = ["Random", "Test"]
 git-tree-sha1 = "49cbf7c74fafaed4c529d47d48c8f7da6a19eb75"
 uuid = "3bb67fe8-82b1-5028-8e26-92a6c54297fa"
 version = "0.10.1"
+weakdeps = ["Random", "Test"]
+
+    [deps.TranscodingStreams.extensions]
+    TestExt = ["Test", "Random"]
 
 [[deps.URIs]]
 git-tree-sha1 = "67db6cc7b3821e19ebe75791a9dd19c9b1188f2b"
