@@ -62,7 +62,6 @@ state = GuiMod.PlotState(
 const USERDATA = Dict{String, Any}(
     "AvailableDataBases" => [""],
     "AvailableRecords" => [GuiMod.HeaderInfo()],
-    "ActiveMark" => [""],
     "ActiveComplexInd" => 1,
     "ActiveChannel" => [""],
     "ActiveCursor" =>[""],
@@ -402,10 +401,8 @@ function plot_repr_graph(ch::Vector{Float64}, state::GuiMod.PlotState, counter::
                 ImPlot.PopStyleColor()
             end
     
-            if ImPlot.IsPlotHovered() & CImGui.IsMouseClicked(1)
-                USERDATA["ActiveMark"] = GuiMod.find_mark(cycle, ibeg)
-            elseif ImPlot.IsPlotHovered() & CImGui.IsMouseDown(1)
-                actMark = USERDATA["ActiveMark"]
+            if ImPlot.IsPlotHovered() & CImGui.IsMouseDown(1)
+                actMark = GuiMod.find_mark(cycle, ibeg)
                 GuiMod.move_mark(cycle, actMark, ibeg, lastindex(ecg[1]))
                 GuiMod.vector_of_structs_to_struct_vector(state)
             else
@@ -624,10 +621,15 @@ function Viewer(state::GuiMod.PlotState)
                 end
             end
 
-            CImGui.Separator()
             CImGui.EndChild()
+            if CImGui.Button("Редактировать границы")
+                CImGui.OpenPopup("edit_boundaries")
+            end
+            edit_boundaries(state)
             CImGui.EndGroup()
+            CImGui.Separator()
 
+            
             chosenComplexInd = USERDATA["ActiveComplexInd"]
             if CImGui.Button("Применить изменения")
                 if !isequal(USERDATA["Record"],[""])
@@ -638,6 +640,42 @@ function Viewer(state::GuiMod.PlotState)
         CImGui.End()
     end
 
+end
+
+function edit_boundaries(state::GuiMod.PlotState)
+
+    if !isnothing(USERDATA["ActiveComplexInd"])
+        cylce = state.result.complexes[USERDATA["ActiveComplexInd"]].bounds
+        boundaries = ["P", "QRS", "T"]
+        if CImGui.BeginPopup("edit_boundaries")
+            for boundary in boundaries
+                if CImGui.Button("add $(boundary)")
+                    field_onset = Symbol("$(boundary)_onset")
+                    field_end = Symbol("$(boundary)_end")
+                    if isnothing(getfield(cylce, field_end))
+                        if hasproperty(cylce, field_onset)
+                            setfield!(cylce, field_onset, 5)    
+                        end
+                        setfield!(cylce, field_end, 10)
+                    end
+                    GuiMod.vector_of_structs_to_struct_vector(state)
+                end
+                CImGui.SameLine()
+                if CImGui.Button("del $(boundary)")
+                    field_onset = Symbol("$(boundary)_onset")
+                    field_end = Symbol("$(boundary)_end")
+                    if !isnothing(getfield(cylce, field_end))
+                        if hasproperty(cylce, field_onset)
+                            setfield!(cylce, field_onset, nothing)    
+                        end
+                        setfield!(cylce, field_end, nothing)
+                    end
+                    GuiMod.vector_of_structs_to_struct_vector(state)
+                end
+            end
+            CImGui.EndPopup()
+        end
+    end
 end
 
 function ParamsTable(state::GuiMod.PlotState)
