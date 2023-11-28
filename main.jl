@@ -65,6 +65,7 @@ const USERDATA = Dict{String, Any}(
     "ActiveComplexInd" => 1,
     "ActiveChannel" => [""],
     "ActiveCursor" =>[""],
+    "ActiveMark" =>[""],
     "ActiveFilters" => [false, false, false],
     "ActiveSettings" => GuiMod.Settings(),
     "RepresentativeCompInd" => 1,
@@ -401,8 +402,10 @@ function plot_repr_graph(ch::Vector{Float64}, state::GuiMod.PlotState, counter::
                 ImPlot.PopStyleColor()
             end
     
-            if ImPlot.IsPlotHovered() & CImGui.IsMouseDown(1)
-                actMark = GuiMod.find_mark(cycle, ibeg)
+            if CImGui.IsItemHovered(CImGui.ImGuiHoveredFlags_AllowWhenBlockedByPopup) & CImGui.IsMouseClicked(1)
+                USERDATA["ActiveMark"] = GuiMod.find_mark(cycle, ibeg)
+            elseif ImPlot.IsPlotHovered() & CImGui.IsMouseDown(1)
+                actMark = USERDATA["ActiveMark"]
                 GuiMod.move_mark(cycle, actMark, ibeg, lastindex(ecg[1]))
                 GuiMod.vector_of_structs_to_struct_vector(state)
             else
@@ -644,9 +647,19 @@ end
 
 function edit_boundaries(state::GuiMod.PlotState)
 
-    if !isnothing(USERDATA["ActiveComplexInd"])
-        cylce = state.result.complexes[USERDATA["ActiveComplexInd"]].bounds
-        boundaries = ["P", "QRS", "T"]
+    chosenComplexInd = USERDATA["ActiveComplexInd"]
+
+    if !isnothing(chosenComplexInd)
+
+        if chosenComplexInd == 1
+            ibeg = 1
+        else
+            ibeg = get_begin_end_marks(state.result.complexes[chosenComplexInd - 1].bounds,
+            state.result.complexes[chosenComplexInd].bounds, false)
+        end
+
+        cylce = state.result.complexes[chosenComplexInd].bounds
+        boundaries = ["P", "T"]
         if CImGui.BeginPopup("edit_boundaries")
             for boundary in boundaries
                 if CImGui.Button("add $(boundary)")
@@ -654,9 +667,9 @@ function edit_boundaries(state::GuiMod.PlotState)
                     field_end = Symbol("$(boundary)_end")
                     if isnothing(getfield(cylce, field_end))
                         if hasproperty(cylce, field_onset)
-                            setfield!(cylce, field_onset, 5)    
+                            setfield!(cylce, field_onset, ibeg)    
                         end
-                        setfield!(cylce, field_end, 10)
+                        setfield!(cylce, field_end, ibeg)
                     end
                     GuiMod.vector_of_structs_to_struct_vector(state)
                 end
