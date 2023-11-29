@@ -573,9 +573,11 @@ function Viewer(state::GuiMod.PlotState)
         USERDATA["Range"][2] = to
 
         flags = ImPlotAxisFlags_NoTickLabels | ImPlotAxisFlags_NoDecorations
-        ImPlot.SetNextPlotLimits(1, to, -2000*length(ecg), maximum(ecg[1]), CImGui.ImGuiCond_Always)
+        ImPlot.SetNextPlotLimitsY(-2000*length(ecg), maximum(ecg[1]), CImGui.ImGuiCond_Always)
+        ImPlot.SetNextPlotLimitsX(1, to, CImGui.ImGuiCond_Once)
+        ImPlot.PushStyleVar(ImPlotStyleVar_PlotPadding, CImGui.ImVec2(0,0))
         if ImPlot.BeginPlot("Навигационный график","x","y",CImGui.ImVec2(USERDATA["N_of_pix"],-1);
-            flags = ImPlotFlags_NoLegend|ImPlotFlags_NoChild,
+            flags = ImPlotFlags_CanvasOnly|ImPlotFlags_NoChild,
             y_flags=flags)
 
                 k = 0
