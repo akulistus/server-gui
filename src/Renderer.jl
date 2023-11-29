@@ -72,17 +72,17 @@ function init_renderer(width, height, title::AbstractString)
     io = CImGui.GetIO()
     io.ConfigFlags = unsafe_load(io.ConfigFlags) | CImGui.ImGuiConfigFlags_DockingEnable
 
-    ### DPI для 4К-дисплеев
-    # basic_h = 1080 # basic_w 1920
-    # mode = glfwGetVideoMode(glfwGetPrimaryMonitor())
-    # w = unsafe_load(mode).width
-    # h = unsafe_load(mode).height
-    # dpi_scale = h / basic_h
-    # @info dpi_scale
-    # # @show h w
+    ## DPI для 4К-дисплеев
+    basic_h = 1080 # basic_w 1920
+    mode = glfwGetVideoMode(glfwGetPrimaryMonitor())
+    w = unsafe_load(mode).width
+    h = unsafe_load(mode).height
+    dpi_scale = h / basic_h
+    @info dpi_scale
+    # @show h w
 
-	# style = CImGui.GetStyle()
-    # CImGui.LibCImGui.ImGuiStyle_ScaleAllSizes(style, dpi_scale)
+	style = CImGui.GetStyle()
+    CImGui.LibCImGui.ImGuiStyle_ScaleAllSizes(style, dpi_scale)
     # # io.FontGlobalScale = dpi_scale; - скорее всего лишнее
 
     ### ШРИФТЫ

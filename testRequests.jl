@@ -15,7 +15,7 @@ COMMAND = "directories"
 @time GuiMod.select_db("test_db")
 @time GuiMod.get_record_info("MO1_001")
 @time GuiMod.get_record_list()
-@time GuiMod.get_signal("MO1_001", 500, 1000, "isoline", "V1")
+@time GuiMod.get_signal("MO1_001", 1, 4000, "isoline", "V1")
 @time GuiMod.get_result("MO1_001")
 
 GuiMod.change_settings("MO1_001", GuiMod.Settings(0.7, true))
