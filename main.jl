@@ -62,17 +62,21 @@ state = GuiMod.PlotState(
 const USERDATA = Dict{String, Any}(
     "AvailableDataBases" => [""],
     "AvailableRecords" => [GuiMod.HeaderInfo()],
+    "ActiveFilters" => [false, false, false],
+    "ActiveSettings" => GuiMod.Settings(),
+    "ActiveYComboState" => "1мВ/5мм",
     "ActiveComplexInd" => 1,
     "ActiveChannel" => [""],
     "ActiveCursor" =>[""],
+    "ActiveYScale" => 3000,
     "ActiveMark" =>[""],
-    "ActiveFilters" => [false, false, false],
-    "ActiveSettings" => GuiMod.Settings(),
     "RepresentativeCompInd" => 1,
-    "Cursor" => GuiMod.Cursor(100,100),
     "Range" => [Cint(1), Cint(200)],
+    "ReprPlotXScale" => 800,
     "Record" => [""],
-    "N_of_pix" => 700 
+    "Cursor" => GuiMod.Cursor(100,100),
+    "N_of_pix" => 700,
+    "Pix_per_mm" => 5.6
 )
 
 try
@@ -85,12 +89,19 @@ const STORAGE = Dict{UInt32, Any}()
 get_uistate(key::String, default = nothing) = get(STORAGE, CImGui.GetID(key), default)
 set_uistate(key::String, value) = STORAGE[CImGui.GetID(key)] = value
 
-function change_ecg_scan(state::GuiMod.PlotState, mm_per_sec::Int)
+function get_pix_per_mm()
     res = read(`wmic desktopmonitor get pixelsperxlogicalinch`, String)
     m = match(r"[0-9]+", res)
-    pix_per_mm = parse(Int, m.match)/25.4
+    USERDATA["Pix_per_mm"] = parse(Int, m.match)/25.4
+end
+
+function get_reprplot_Yscale()
+    USERDATA["ReprPlotXScale"] = round(Int, 6*USERDATA["Pix_per_mm"]*5)
+end
+
+function change_ecg_scan(state::GuiMod.PlotState, mm_per_sec::Int)
     sec = state.record_info.length/state.record_info.freq
-    n_of_pix = round(Int, sec*mm_per_sec*pix_per_mm)
+    n_of_pix = round(Int, sec*mm_per_sec*USERDATA["Pix_per_mm"])
     return n_of_pix
 end
 
@@ -145,6 +156,9 @@ function select_records(selected_record_name, records::Vector{GuiMod.HeaderInfo}
             USERDATA["RepresentativeCompInd"] = GuiMod.get_representative(record) + 1
             USERDATA["ActiveSettings"] = [false, false]
             state.record_info = GuiMod.get_record_info(record)
+            get_pix_per_mm()
+            get_reprplot_Yscale()
+            USERDATA["N_of_pix"] = change_ecg_scan(state, 10)
             USERDATA["Range"][2] = Cint(state.record_info.length)
             state.signal = GuiMod.get_signal(record, 1, state.record_info.length)
             state.result = GuiMod.get_result(record)
@@ -356,17 +370,15 @@ end
 
 function plot_repr_graph(ch::Vector{Float64}, state::GuiMod.PlotState, counter::Int)
 
-    flags = ImPlotAxisFlags_NoTickLabels | ImPlotAxisFlags_NoDecorations
+    flags = ImPlotAxisFlags_NoTickLabels | ImPlotAxisFlags_NoLabel
     chosenComplexInd = USERDATA["ActiveComplexInd"]
     cursor = USERDATA["Cursor"]
     ecg = state.signal
-    ymin = minimum(minimum.(ecg))
-    ymax = maximum(maximum.(ecg))
     
     ImPlot.PushStyleVar(ImPlotStyleVar_PlotPadding, CImGui.ImVec2(0,0))
-    ImPlot.SetNextPlotLimits(1, state.xlim.max, ymin, ymax, CImGui.ImGuiCond_Always)
-    
-    if ImPlot.BeginPlot("#Plot"*"$counter","","",CImGui.ImVec2(-1,ceil(CImGui.GetWindowHeight()/6));
+    ImPlot.SetNextPlotLimits(1, state.xlim.max, -USERDATA["ActiveYScale"], USERDATA["ActiveYScale"], CImGui.ImGuiCond_Always)
+
+    if ImPlot.BeginPlot("#Plot"*"$counter","","",CImGui.ImVec2(-1,USERDATA["ReprPlotXScale"]);
         flags = ImPlotFlags_CanvasOnly|ImPlotFlags_NoChild,
         x_flags = flags, y_flags = flags)
     
@@ -641,6 +653,22 @@ function Viewer(state::GuiMod.PlotState)
             CImGui.OpenPopup("edit_boundaries")
         end
         edit_boundaries(state)
+        CImGui.SameLine()
+        items = ["20","10","5"]        
+        @cstatic active_scan = Cint(2) begin
+            if @c CImGui.Combo(USERDATA["ActiveYComboState"], &active_scan, items, length(items))
+                if active_scan == 2
+                    USERDATA["ActiveYScale"] = 3000/1
+                    USERDATA["ActiveYComboState"] = "1мВ/5мм"
+                elseif active_scan == 1
+                    USERDATA["ActiveYScale"] = 3000/2
+                    USERDATA["ActiveYComboState"] = "1мВ/10мм"
+                else
+                    USERDATA["ActiveYScale"] = 3000/4
+                    USERDATA["ActiveYComboState"] = "1мВ/20мм"
+                end
+            end
+        end
 
         CImGui.Separator()
         chosenComplexInd = USERDATA["ActiveComplexInd"]

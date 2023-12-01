@@ -1,7 +1,5 @@
 function get_db_list()
-    r = HTTP.get("http://$HOST:$PORT/directories")
-    str = String(r.body)
-    return JSON3.read(str,Vector{String})
+    return readdir(PATH)
 end
 
 function select_db(DIRECTORY::String)
