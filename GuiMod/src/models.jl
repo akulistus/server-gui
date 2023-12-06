@@ -8,8 +8,8 @@ mutable struct HeaderInfo
     monitorType :: Union{Int, Nothing}
     stimuls :: Union{String, Nothing}
 
-    function HeaderInfo(filename::String = "0", timestart::String = "0",
-        length::Int = 0, freq::Float64 = 0.0, channels::Vector{String} = ["0"],
+    function HeaderInfo(filename::String = "nothing", timestart::String = "0",
+        length::Int = 1, freq::Float64 = 500.0, channels::Vector{String} = ["0"],
         monitorNumber::Union{Int, Nothing} = 1, monitorType::Union{Int, Nothing} = 1, stimuls::Union{String, Nothing} = "1")
         new(filename, timestart, length, freq, channels, monitorNumber, monitorType, stimuls)
     end

@@ -62,27 +62,45 @@ state = GuiMod.PlotState(
 const USERDATA = Dict{String, Any}(
     "AvailableDataBases" => [""],
     "AvailableRecords" => [GuiMod.HeaderInfo()],
-    "ActiveMark" => [""],
-    "ActiveComplexInd" => 1,
-    "ActiveChannel" => [""],
-    "ActiveCursor" =>[""],
     "ActiveFilters" => [false, false, false],
     "ActiveSettings" => GuiMod.Settings(),
+    "ActiveYComboState" => "1мВ/5мм",
+    "ActiveXComboState" => "10мм/сек",
+    "ActiveComplexInd" => 1,
+    "ActiveChannel" => [""],
+    "ActiveYScale" => 3000,
+    "ActiveDirPath" => "",
+    "ActiveCursor" =>[""],
+    "ActiveMark" =>[""],
     "RepresentativeCompInd" => 1,
-    "Cursor" => GuiMod.Cursor(100,100),
     "Range" => [Cint(1), Cint(200)],
-    "Record" => [""]
+    "ReprPlotXScale" => 800,
+    "Record" => [""],
+    "Cursor" => GuiMod.Cursor(100,100),
+    "N_of_pix" => 700,
+    "Pix_per_mm" => 5.6
 )
-
-try
-    USERDATA["AvailableDataBases"] = GuiMod.get_db_list()
-catch
-end
 
 # хранилище, привязанное к ID виджетов
 const STORAGE = Dict{UInt32, Any}()
 get_uistate(key::String, default = nothing) = get(STORAGE, CImGui.GetID(key), default)
 set_uistate(key::String, value) = STORAGE[CImGui.GetID(key)] = value
+
+function get_pix_per_mm()
+    res = read(`wmic desktopmonitor get pixelsperxlogicalinch`, String)
+    m = match(r"[0-9]+", res)
+    USERDATA["Pix_per_mm"] = parse(Int, m.match)/25.4
+end
+
+function get_reprplot_Yscale()
+    USERDATA["ReprPlotXScale"] = round(Int, 6*USERDATA["Pix_per_mm"]*5)
+end
+
+function change_ecg_scan(state::GuiMod.PlotState, mm_per_sec::Int)
+    sec = state.record_info.length/state.record_info.freq
+    n_of_pix = round(Int, sec*mm_per_sec*USERDATA["Pix_per_mm"])
+    return n_of_pix
+end
 
 function find_chosen_complex(state :: GuiMod.PlotState, cursor::GuiMod.Cursor)
     for i in eachindex(state.result.complexes)
@@ -108,14 +126,10 @@ function select_base(selected_db_name::String, dataBases::Vector{String})
         if CImGui.Selectable(label, selected_db_name == dB)
 
             set_uistate("selected_database",dB)
-            GuiMod.select_db(dB)
+            GuiMod.select_db(join([USERDATA["ActiveDirPath"],dB], "\\"))
             USERDATA["AvailableRecords"] = GuiMod.get_record_list()
-
         end
-
-
     end
-
 end
 
 function select_records(selected_record_name, records::Vector{GuiMod.HeaderInfo})
@@ -129,21 +143,25 @@ function select_records(selected_record_name, records::Vector{GuiMod.HeaderInfo}
 
         if CImGui.Selectable(label, selected_record_name == record)
 
+            if record == "nothing"
+                continue
+            end
             set_uistate("selected_record",record)
             USERDATA["Record"] = record
             USERDATA["ActiveComplexInd"] = GuiMod.get_representative(record) + 1 # zero-based.
             USERDATA["RepresentativeCompInd"] = GuiMod.get_representative(record) + 1
             USERDATA["ActiveSettings"] = [false, false]
             state.record_info = GuiMod.get_record_info(record)
+            get_pix_per_mm()
+            get_reprplot_Yscale()
+            USERDATA["N_of_pix"] = change_ecg_scan(state, 10)
             USERDATA["Range"][2] = Cint(state.record_info.length)
             state.signal = GuiMod.get_signal(record, 1, state.record_info.length)
             state.result = GuiMod.get_result(record)
             USERDATA["ActiveSettings"] = GuiMod.get_settings(record)
             state.numChn = length(keys(state.signal))
             GuiMod.vector_of_structs_to_struct_vector(state)
-
         end
-
     end
 end
 
@@ -159,7 +177,6 @@ function show_stats(wigit_name::String, info::GuiMod.HeaderInfo)
         CImGui.TableSetColumnIndex(1)
         CImGui.Text("$(getfield(info,property))")
     end
-
     CImGui.EndTable()
 end
 
@@ -317,7 +334,6 @@ function show_shifts(propertys::Vector{Symbol}, complexes :: Vector{GuiMod.Compl
             CImGui.NextColumn()
         end
         CImGui.Separator()
-
     end
     CImGui.Columns()
     CImGui.Separator()
@@ -346,17 +362,15 @@ end
 
 function plot_repr_graph(ch::Vector{Float64}, state::GuiMod.PlotState, counter::Int)
 
-    flags = ImPlotAxisFlags_NoTickLabels | ImPlotAxisFlags_NoDecorations
+    flags = ImPlotAxisFlags_NoTickLabels | ImPlotAxisFlags_NoLabel
     chosenComplexInd = USERDATA["ActiveComplexInd"]
     cursor = USERDATA["Cursor"]
     ecg = state.signal
-    ymin = minimum(minimum.(ecg))
-    ymax = maximum(maximum.(ecg))
     
     ImPlot.PushStyleVar(ImPlotStyleVar_PlotPadding, CImGui.ImVec2(0,0))
-    ImPlot.SetNextPlotLimits(1, state.xlim.max, ymin, ymax, CImGui.ImGuiCond_Always)
-    
-    if ImPlot.BeginPlot("#Plot"*"$counter","","",CImGui.ImVec2(-1,ceil(CImGui.GetWindowHeight()/6));
+    ImPlot.SetNextPlotLimits(1, state.xlim.max, -USERDATA["ActiveYScale"], USERDATA["ActiveYScale"], CImGui.ImGuiCond_Always)
+
+    if ImPlot.BeginPlot("#Plot"*"$counter","","",CImGui.ImVec2(-1,USERDATA["ReprPlotXScale"]);
         flags = ImPlotFlags_CanvasOnly|ImPlotFlags_NoChild,
         x_flags = flags, y_flags = flags)
     
@@ -402,9 +416,9 @@ function plot_repr_graph(ch::Vector{Float64}, state::GuiMod.PlotState, counter::
                 ImPlot.PopStyleColor()
             end
     
-            if ImPlot.IsPlotHovered() & CImGui.IsMouseClicked(1)
+            if CImGui.IsItemHovered(CImGui.ImGuiHoveredFlags_AllowWhenBlockedByPopup) & CImGui.IsMouseClicked(1)
                 USERDATA["ActiveMark"] = GuiMod.find_mark(cycle, ibeg)
-            elseif ImPlot.IsPlotHovered() & CImGui.IsMouseDown(1)
+            elseif CImGui.IsItemHovered(CImGui.ImGuiHoveredFlags_AllowWhenBlockedByPopup) & CImGui.IsMouseDown(1)
                 actMark = USERDATA["ActiveMark"]
                 GuiMod.move_mark(cycle, actMark, ibeg, lastindex(ecg[1]))
                 GuiMod.vector_of_structs_to_struct_vector(state)
@@ -419,11 +433,9 @@ function plot_repr_graph(ch::Vector{Float64}, state::GuiMod.PlotState, counter::
                 ImPlot.PlotLine(Float64.(ch[ibeg:iend]))
                 ImPlot.PlotText("$(ecgChannelsNames[counter])", 100, 0)
             end
-    
             state.xlim = (min = ibeg, max = iend-ibeg)
             ImPlot.EndPlot()
         end
-    
     ImPlot.PopStyleVar()
 end
 
@@ -464,16 +476,17 @@ function ui()
 
             CImGui.EndGroup()
 
-            if CImGui.Button("Обновить")
-                dataBases = GuiMod.get_db_list()
+            if CImGui.Button("Открыть")
+                path = GuiMod.get_db_list()
+                if path != ""
+                    USERDATA["ActiveDirPath"] = path
+                    dataBases = readdir(USERDATA["ActiveDirPath"])
+                end
             end
-
         CImGui.EndTabItem()
-
         end
 
     CImGui.EndTabBar()
-
     USERDATA["AvailableDataBases"] = dataBases
 
     Viewer(state)
@@ -549,17 +562,33 @@ function Viewer(state::GuiMod.PlotState)
                 catch
                 end
                 state.result.complexes = GuiMod.get_complexes(USERDATA["Record"])
+                GuiMod.vector_of_structs_to_struct_vector(state)
             end
         end
         CImGui.Text("Номер представительного комплекса: $(USERDATA["RepresentativeCompInd"])")
+        items = ["50","20","10"]        
+        @cstatic active_scan = Cint(2) begin
+            if @c CImGui.Combo(USERDATA["ActiveXComboState"], &active_scan, items, length(items))
+                USERDATA["N_of_pix"] = change_ecg_scan(state, parse(Int,items[active_scan+1]))
+                if active_scan == 0
+                    USERDATA["ActiveXComboState"] = "50мм/сек"
+                elseif active_scan == 1
+                    USERDATA["ActiveXComboState"] = "20мм/сек"
+                else
+                    USERDATA["ActiveXComboState"] = "10мм/сек"
+                end
+            end
+        end
         USERDATA["ActiveFilters"] = [isoline, fiftyHz, thirtyfiveHz]
         USERDATA["Range"][1] = from
         USERDATA["Range"][2] = to
 
         flags = ImPlotAxisFlags_NoTickLabels | ImPlotAxisFlags_NoDecorations
-        ImPlot.SetNextPlotLimits(1, to, -2000*length(ecg), maximum(ecg[1]), CImGui.ImGuiCond_Always)
-        if ImPlot.BeginPlot("Навигационный график","x","y",CImGui.ImVec2(-1,-1);
-            flags = ImPlotFlags_NoLegend|ImPlotFlags_NoChild,
+        ImPlot.SetNextPlotLimitsY(-2000*length(ecg), maximum(ecg[1]), CImGui.ImGuiCond_Always)
+        ImPlot.SetNextPlotLimitsX(1, to, CImGui.ImGuiCond_Once)
+        ImPlot.PushStyleVar(ImPlotStyleVar_PlotPadding, CImGui.ImVec2(0,0))
+        if ImPlot.BeginPlot("Навигационный график","x","y",CImGui.ImVec2(USERDATA["N_of_pix"],-1);
+            flags = ImPlotFlags_CanvasOnly|ImPlotFlags_NoChild,
             y_flags=flags)
 
                 k = 0
@@ -572,7 +601,7 @@ function Viewer(state::GuiMod.PlotState)
 
                 for name in propertynames(state.result.complexes[1].bounds)
                     bound = getfield(state, name)
-                    if isa(bound, Nothing) || isa(bound, Vector{Nothing})
+                    if isa(bound, Nothing) || isa(bound, Vector{Nothing}) || isempty(bound)
                         continue
                     end
                     ImPlot.PlotVLines("$name", trunc.(Int,bound), length(bound))
@@ -580,64 +609,125 @@ function Viewer(state::GuiMod.PlotState)
 
                 ImPlot.PlotVLines("Cursor", Ref(cursor.pos), 1)
 
-                if ImPlot.IsPlotHovered() && CImGui.IsMouseClicked(0)
+                if ImPlot.IsPlotHovered() && CImGui.IsMouseClicked(1)
                     cursor.pos = GuiMod.move_coursor()
                     GuiMod.update_cursor!(cursor)
                     USERDATA["ActiveComplexInd"] = find_chosen_complex(state, cursor)
                 end
-                
                 ImPlot.EndPlot()
         end
-
         USERDATA["Cursor"] = cursor
         CImGui.End()
     end
 
     if CImGui.Begin("Просмотр представительного комплекса")
-
+        counter = 1
         CImGui.BeginGroup()
-            counter = 1
-        CImGui.BeginChild("#Plots", CImGui.ImVec2(-1,-CImGui.GetFrameHeightWithSpacing()))
-            @cstatic(flags = ImPlotAxisFlags_NoTickLabels | ImPlotAxisFlags_NoDecorations),
-            begin
-                CImGui.BeginGroup()
-                    CImGui.BeginChild("#Plots1", CImGui.ImVec2(CImGui.GetWindowSize().x/2,-CImGui.GetFrameHeightWithSpacing()))
-                        for ch in ecg
-                            if counter == 7
-                                break
-                            end
-                            plot_repr_graph(ch, state, counter)
-                            counter += 1
-                        end
-                    CImGui.EndChild()
-                CImGui.EndGroup()
-                if counter > 6
-                    CImGui.SameLine()
-                    CImGui.BeginGroup()
-                        CImGui.BeginChild("#Plots2", CImGui.ImVec2(-1,-CImGui.GetFrameHeightWithSpacing()))
-                        for ind in range(7,12)
-                            plot_repr_graph(ecg[ind], state, counter)
-                            counter += 1
-                        end
-                        CImGui.EndChild() 
-                    CImGui.EndGroup()
+            CImGui.BeginChild("#Plots1", CImGui.ImVec2(CImGui.GetWindowSize().x/2,-CImGui.GetFrameHeightWithSpacing()))
+                for ch in ecg
+                    if counter == 7
+                        break
+                    end
+                    plot_repr_graph(ch, state, counter)
+                    counter += 1
                 end
-            end
-
-            CImGui.Separator()
             CImGui.EndChild()
+        CImGui.EndGroup()
+        if counter > 6
+            CImGui.SameLine()
+            CImGui.BeginGroup()
+                CImGui.BeginChild("#Plots2", CImGui.ImVec2(-1,-CImGui.GetFrameHeightWithSpacing()))
+                    for ind in range(7,12)
+                        plot_repr_graph(ecg[ind], state, counter)
+                        counter += 1
+                    end
+                CImGui.EndChild() 
             CImGui.EndGroup()
+        end
+        CImGui.Separator()
 
-            chosenComplexInd = USERDATA["ActiveComplexInd"]
-            if CImGui.Button("Применить изменения")
-                if !isequal(USERDATA["Record"],[""])
-                    GuiMod.post_complex(USERDATA["Record"], state.result.complexes[chosenComplexInd].bounds)
-                    state.result.complexes = GuiMod.get_complexes(USERDATA["Record"])
+        chosenComplexInd = USERDATA["ActiveComplexInd"]
+        if CImGui.Button("Применить изменения")
+            if !isequal(USERDATA["Record"],[""])
+                params_preview = GuiMod.get_params_preview(USERDATA["Record"], state.result.complexes[chosenComplexInd].bounds, chosenComplexInd - 1)
+                state.result.complexes[chosenComplexInd].params = params_preview.params
+                #lower - caches changes
+                # GuiMod.post_complex(USERDATA["Record"], state.result.complexes[chosenComplexInd].bounds)
+                # state.result.complexes = GuiMod.get_complexes(USERDATA["Record"])
+            end
+        end
+        CImGui.SameLine()
+
+        if CImGui.Button("Редактировать границы")
+            CImGui.OpenPopup("edit_boundaries")
+        end
+        edit_boundaries(state)
+        CImGui.SameLine()
+        items = ["20","10","5"]        
+        @cstatic active_scan = Cint(2) begin
+            if @c CImGui.Combo(USERDATA["ActiveYComboState"], &active_scan, items, length(items))
+                if active_scan == 2
+                    USERDATA["ActiveYScale"] = 3000/1
+                    USERDATA["ActiveYComboState"] = "1мВ/5мм"
+                elseif active_scan == 1
+                    USERDATA["ActiveYScale"] = 3000/2
+                    USERDATA["ActiveYComboState"] = "1мВ/10мм"
+                else
+                    USERDATA["ActiveYScale"] = 3000/4
+                    USERDATA["ActiveYComboState"] = "1мВ/20мм"
                 end
             end
-        CImGui.End()
+        end
+    CImGui.EndChild()
+    CImGui.EndGroup()
+    CImGui.End()
     end
+end
 
+function edit_boundaries(state::GuiMod.PlotState)
+
+    chosenComplexInd = USERDATA["ActiveComplexInd"]
+
+    if !isnothing(chosenComplexInd)
+
+        if chosenComplexInd == 1
+            ibeg = 1
+        else
+            ibeg = get_begin_end_marks(state.result.complexes[chosenComplexInd - 1].bounds,
+            state.result.complexes[chosenComplexInd].bounds, false)
+        end
+
+        cylce = state.result.complexes[chosenComplexInd].bounds
+        boundaries = ["P", "T"]
+        if CImGui.BeginPopup("edit_boundaries")
+            for boundary in boundaries
+                if CImGui.Button("add $(boundary)")
+                    field_onset = Symbol("$(boundary)_onset")
+                    field_end = Symbol("$(boundary)_end")
+                    if isnothing(getfield(cylce, field_end))
+                        if hasproperty(cylce, field_onset)
+                            setfield!(cylce, field_onset, ibeg)    
+                        end
+                        setfield!(cylce, field_end, ibeg)
+                    end
+                    GuiMod.vector_of_structs_to_struct_vector(state)
+                end
+                CImGui.SameLine()
+                if CImGui.Button("del $(boundary)")
+                    field_onset = Symbol("$(boundary)_onset")
+                    field_end = Symbol("$(boundary)_end")
+                    if !isnothing(getfield(cylce, field_end))
+                        if hasproperty(cylce, field_onset)
+                            setfield!(cylce, field_onset, nothing)  
+                        end
+                        setfield!(cylce, field_end, nothing)
+                    end
+                    GuiMod.vector_of_structs_to_struct_vector(state)
+                end
+            end
+            CImGui.EndPopup()
+        end
+    end
 end
 
 function ParamsTable(state::GuiMod.PlotState)
@@ -679,7 +769,6 @@ function RepresentatieveComplexParamsTable(state::GuiMod.PlotState, complexInd :
             CImGui.Text("Амплитуды:")
             show_shifts([:P_amp,:Q_amp,:R_amp,:S_amp,:T_amp], [complex], false)
         end
-
         CImGui.End()
     end
 end

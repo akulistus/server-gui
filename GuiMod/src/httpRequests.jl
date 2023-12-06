@@ -1,11 +1,10 @@
 function get_db_list()
-    r = HTTP.get("http://$HOST:$PORT/directories")
-    str = String(r.body)
-    return JSON3.read(str,Vector{String})
+    PATH = NativeFileDialog.pick_folder()
+    return PATH
 end
 
 function select_db(DIRECTORY::String)
-    HTTP.post("http://$HOST:$PORT/$USER/directory"; body = join([PATH, DIRECTORY]))
+    HTTP.post("http://$HOST:$PORT/$USER/directory"; body = DIRECTORY)
 end
 
 function get_record_list()
@@ -68,4 +67,11 @@ function get_chunk_params(record_name::String, from::Int, to:: Int)
     query = Dict([("from", from), ("to", to)])
     r = HTTP.get("http://$HOST:$PORT/$USER/records/$record_name/chunk_params"; query = query)
     return JSON3.read(r.body, ChunkParams)
+end
+
+function get_params_preview(record_name::String, complex::GlobalBounds, representative::Int)
+    json_complex = JSON3.write(complex)
+    query = Dict([("from", 1), ("to", 500), ("representative", representative)])
+    r = HTTP.post("http://$HOST:$PORT/$USER/records/$record_name/params_preview", [("Content-Type" => "application/json")], json_complex, verbose=3; query = query)
+    return JSON3.read(r.body, Preview)
 end
