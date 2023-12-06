@@ -1,6 +1,6 @@
 module GuiMod
     # using PrecompileTools
-    import StructTypes, JSON3, Dates, HTTP, ImPlot
+    import StructTypes, JSON3, Dates, HTTP, ImPlot, NativeFileDialog
     import Base.EnvDict
 
     const USER = "tmp"
@@ -9,7 +9,6 @@ module GuiMod
     const HOST = "0.0.0.0"
     const CHANNELS = "I,II,III,aVR,aVL,aVF,V1,V2,V3,V4,V5,V6"
     # path to directory that contains all the db's
-    const PATH = "C:/Users/8cara/OneDrive/Documents/Projects/Server/data/"
 
     include("models.jl")
     include("Cursor.jl")

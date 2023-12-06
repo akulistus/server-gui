@@ -65,10 +65,12 @@ const USERDATA = Dict{String, Any}(
     "ActiveFilters" => [false, false, false],
     "ActiveSettings" => GuiMod.Settings(),
     "ActiveYComboState" => "1мВ/5мм",
+    "ActiveXComboState" => "10мм/сек",
     "ActiveComplexInd" => 1,
     "ActiveChannel" => [""],
-    "ActiveCursor" =>[""],
     "ActiveYScale" => 3000,
+    "ActiveDirPath" => "",
+    "ActiveCursor" =>[""],
     "ActiveMark" =>[""],
     "RepresentativeCompInd" => 1,
     "Range" => [Cint(1), Cint(200)],
@@ -78,11 +80,6 @@ const USERDATA = Dict{String, Any}(
     "N_of_pix" => 700,
     "Pix_per_mm" => 5.6
 )
-
-try
-    USERDATA["AvailableDataBases"] = GuiMod.get_db_list()
-catch
-end
 
 # хранилище, привязанное к ID виджетов
 const STORAGE = Dict{UInt32, Any}()
@@ -129,14 +126,10 @@ function select_base(selected_db_name::String, dataBases::Vector{String})
         if CImGui.Selectable(label, selected_db_name == dB)
 
             set_uistate("selected_database",dB)
-            GuiMod.select_db(dB)
+            GuiMod.select_db(join([USERDATA["ActiveDirPath"],dB], "\\"))
             USERDATA["AvailableRecords"] = GuiMod.get_record_list()
-
         end
-
-
     end
-
 end
 
 function select_records(selected_record_name, records::Vector{GuiMod.HeaderInfo})
@@ -150,6 +143,9 @@ function select_records(selected_record_name, records::Vector{GuiMod.HeaderInfo}
 
         if CImGui.Selectable(label, selected_record_name == record)
 
+            if record == "nothing"
+                continue
+            end
             set_uistate("selected_record",record)
             USERDATA["Record"] = record
             USERDATA["ActiveComplexInd"] = GuiMod.get_representative(record) + 1 # zero-based.
@@ -165,9 +161,7 @@ function select_records(selected_record_name, records::Vector{GuiMod.HeaderInfo}
             USERDATA["ActiveSettings"] = GuiMod.get_settings(record)
             state.numChn = length(keys(state.signal))
             GuiMod.vector_of_structs_to_struct_vector(state)
-
         end
-
     end
 end
 
@@ -183,7 +177,6 @@ function show_stats(wigit_name::String, info::GuiMod.HeaderInfo)
         CImGui.TableSetColumnIndex(1)
         CImGui.Text("$(getfield(info,property))")
     end
-
     CImGui.EndTable()
 end
 
@@ -341,7 +334,6 @@ function show_shifts(propertys::Vector{Symbol}, complexes :: Vector{GuiMod.Compl
             CImGui.NextColumn()
         end
         CImGui.Separator()
-
     end
     CImGui.Columns()
     CImGui.Separator()
@@ -441,11 +433,9 @@ function plot_repr_graph(ch::Vector{Float64}, state::GuiMod.PlotState, counter::
                 ImPlot.PlotLine(Float64.(ch[ibeg:iend]))
                 ImPlot.PlotText("$(ecgChannelsNames[counter])", 100, 0)
             end
-    
             state.xlim = (min = ibeg, max = iend-ibeg)
             ImPlot.EndPlot()
         end
-    
     ImPlot.PopStyleVar()
 end
 
@@ -486,16 +476,17 @@ function ui()
 
             CImGui.EndGroup()
 
-            if CImGui.Button("Обновить")
-                dataBases = GuiMod.get_db_list()
+            if CImGui.Button("Открыть")
+                path = GuiMod.get_db_list()
+                if path != ""
+                    USERDATA["ActiveDirPath"] = path
+                    dataBases = readdir(USERDATA["ActiveDirPath"])
+                end
             end
-
         CImGui.EndTabItem()
-
         end
 
     CImGui.EndTabBar()
-
     USERDATA["AvailableDataBases"] = dataBases
 
     Viewer(state)
@@ -571,13 +562,21 @@ function Viewer(state::GuiMod.PlotState)
                 catch
                 end
                 state.result.complexes = GuiMod.get_complexes(USERDATA["Record"])
+                GuiMod.vector_of_structs_to_struct_vector(state)
             end
         end
         CImGui.Text("Номер представительного комплекса: $(USERDATA["RepresentativeCompInd"])")
         items = ["50","20","10"]        
         @cstatic active_scan = Cint(2) begin
-            if @c CImGui.Combo("Combo", &active_scan, items, length(items))
+            if @c CImGui.Combo(USERDATA["ActiveXComboState"], &active_scan, items, length(items))
                 USERDATA["N_of_pix"] = change_ecg_scan(state, parse(Int,items[active_scan+1]))
+                if active_scan == 0
+                    USERDATA["ActiveXComboState"] = "50мм/сек"
+                elseif active_scan == 1
+                    USERDATA["ActiveXComboState"] = "20мм/сек"
+                else
+                    USERDATA["ActiveXComboState"] = "10мм/сек"
+                end
             end
         end
         USERDATA["ActiveFilters"] = [isoline, fiftyHz, thirtyfiveHz]
@@ -602,7 +601,7 @@ function Viewer(state::GuiMod.PlotState)
 
                 for name in propertynames(state.result.complexes[1].bounds)
                     bound = getfield(state, name)
-                    if isa(bound, Nothing) || isa(bound, Vector{Nothing})
+                    if isa(bound, Nothing) || isa(bound, Vector{Nothing}) || isempty(bound)
                         continue
                     end
                     ImPlot.PlotVLines("$name", trunc.(Int,bound), length(bound))
@@ -615,10 +614,8 @@ function Viewer(state::GuiMod.PlotState)
                     GuiMod.update_cursor!(cursor)
                     USERDATA["ActiveComplexInd"] = find_chosen_complex(state, cursor)
                 end
-                
                 ImPlot.EndPlot()
         end
-
         USERDATA["Cursor"] = cursor
         CImGui.End()
     end
@@ -649,6 +646,18 @@ function Viewer(state::GuiMod.PlotState)
         end
         CImGui.Separator()
 
+        chosenComplexInd = USERDATA["ActiveComplexInd"]
+        if CImGui.Button("Применить изменения")
+            if !isequal(USERDATA["Record"],[""])
+                params_preview = GuiMod.get_params_preview(USERDATA["Record"], state.result.complexes[chosenComplexInd].bounds, chosenComplexInd - 1)
+                state.result.complexes[chosenComplexInd].params = params_preview.params
+                #lower - caches changes
+                # GuiMod.post_complex(USERDATA["Record"], state.result.complexes[chosenComplexInd].bounds)
+                # state.result.complexes = GuiMod.get_complexes(USERDATA["Record"])
+            end
+        end
+        CImGui.SameLine()
+
         if CImGui.Button("Редактировать границы")
             CImGui.OpenPopup("edit_boundaries")
         end
@@ -667,15 +676,6 @@ function Viewer(state::GuiMod.PlotState)
                     USERDATA["ActiveYScale"] = 3000/4
                     USERDATA["ActiveYComboState"] = "1мВ/20мм"
                 end
-            end
-        end
-
-        CImGui.Separator()
-        chosenComplexInd = USERDATA["ActiveComplexInd"]
-        if CImGui.Button("Применить изменения")
-            if !isequal(USERDATA["Record"],[""])
-                GuiMod.post_complex(USERDATA["Record"], state.result.complexes[chosenComplexInd].bounds)
-                state.result.complexes = GuiMod.get_complexes(USERDATA["Record"])
             end
         end
     CImGui.EndChild()
@@ -718,7 +718,7 @@ function edit_boundaries(state::GuiMod.PlotState)
                     field_end = Symbol("$(boundary)_end")
                     if !isnothing(getfield(cylce, field_end))
                         if hasproperty(cylce, field_onset)
-                            setfield!(cylce, field_onset, nothing)    
+                            setfield!(cylce, field_onset, nothing)  
                         end
                         setfield!(cylce, field_end, nothing)
                     end
@@ -769,7 +769,6 @@ function RepresentatieveComplexParamsTable(state::GuiMod.PlotState, complexInd :
             CImGui.Text("Амплитуды:")
             show_shifts([:P_amp,:Q_amp,:R_amp,:S_amp,:T_amp], [complex], false)
         end
-
         CImGui.End()
     end
 end
