@@ -502,6 +502,7 @@ function Viewer(state::GuiMod.PlotState)
 
     ecg = state.signal
     
+    CImGui.SetNextWindowSize(CImGui.ImVec2(1200, 1000), CImGui.ImGuiCond_Once)
     if CImGui.Begin("Просмотр")
 
         cursor = USERDATA["Cursor"]
@@ -620,6 +621,7 @@ function Viewer(state::GuiMod.PlotState)
         CImGui.End()
     end
 
+    CImGui.SetNextWindowSize(CImGui.ImVec2(1200, 1000), CImGui.ImGuiCond_Once)
     if CImGui.Begin("Просмотр представительного комплекса")
         counter = 1
         CImGui.BeginGroup()
@@ -647,13 +649,21 @@ function Viewer(state::GuiMod.PlotState)
         CImGui.Separator()
 
         chosenComplexInd = USERDATA["ActiveComplexInd"]
-        if CImGui.Button("Применить изменения")
+        if CImGui.Button("Сохранить изменения")
+            if !isequal(USERDATA["Record"],[""])
+                # params_preview = GuiMod.get_params_preview(USERDATA["Record"], state.result.complexes[chosenComplexInd].bounds, chosenComplexInd - 1)
+                # state.result.complexes[chosenComplexInd].params = params_preview.params
+                #lower - caches changes
+                GuiMod.post_complex(USERDATA["Record"], state.result.complexes[chosenComplexInd].bounds)
+                state.result.complexes = GuiMod.get_complexes(USERDATA["Record"])
+            end
+        end
+        CImGui.SameLine()
+
+        if CImGui.Button("Пересчитать параметры")
             if !isequal(USERDATA["Record"],[""])
                 params_preview = GuiMod.get_params_preview(USERDATA["Record"], state.result.complexes[chosenComplexInd].bounds, chosenComplexInd - 1)
                 state.result.complexes[chosenComplexInd].params = params_preview.params
-                #lower - caches changes
-                # GuiMod.post_complex(USERDATA["Record"], state.result.complexes[chosenComplexInd].bounds)
-                # state.result.complexes = GuiMod.get_complexes(USERDATA["Record"])
             end
         end
         CImGui.SameLine()
@@ -731,6 +741,7 @@ function edit_boundaries(state::GuiMod.PlotState)
 end
 
 function ParamsTable(state::GuiMod.PlotState)
+    CImGui.SetNextWindowSize(CImGui.ImVec2(1200, 300), CImGui.ImGuiCond_Once)
     if CImGui.Begin("Параметры")
         show_parameters("#algRes", state.result.complexes, true)
         CImGui.End()
@@ -738,6 +749,7 @@ function ParamsTable(state::GuiMod.PlotState)
 end
 
 function ShiftsTable(state::GuiMod.PlotState)
+    CImGui.SetNextWindowSize(CImGui.ImVec2(1200, 300), CImGui.ImGuiCond_Once)
     if CImGui.Begin("Смещения")
         show_shifts([:ST20,:ST40,:ST60,:ST80], state.result.complexes, true)
         CImGui.End()
@@ -745,6 +757,7 @@ function ShiftsTable(state::GuiMod.PlotState)
 end
 
 function AmpTable(state::GuiMod.PlotState)
+    CImGui.SetNextWindowSize(CImGui.ImVec2(1200, 300), CImGui.ImGuiCond_Once)
     if CImGui.Begin("Амплитуды")
         show_shifts([:P_amp,:Q_amp,:R_amp,:S_amp,:T_amp], state.result.complexes, true)
         CImGui.End()
@@ -752,13 +765,14 @@ function AmpTable(state::GuiMod.PlotState)
 end
 
 function ChunkParamsTable(state::GuiMod.PlotState)
+    CImGui.SetNextWindowSize(CImGui.ImVec2(1200, 300), CImGui.ImGuiCond_Once)
     if CImGui.Begin("ChunkParams")
         show_chunk_params(state.result.chunk_params)
     end
 end
 
 function RepresentatieveComplexParamsTable(state::GuiMod.PlotState, complexInd :: Union{Int, Nothing})
-    
+    CImGui.SetNextWindowSize(CImGui.ImVec2(1200, 300), CImGui.ImGuiCond_Once)
     if CImGui.Begin("Параметры комплекса")
 
         if !isnothing(complexInd)
