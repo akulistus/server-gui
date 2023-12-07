@@ -3,11 +3,6 @@
 1. Необходимо установить путь до директории, содрежащей сигналы.
 Для этоо необходимо нажать на кнопку *открыть* в окне debug.
 
-Или можно в модуле *GuiMoD/src/GuiMod.jl* указать путь к директории, прописав его в константу:
-``` julia
-const PATH = "path/to/your/directory"
-```
-
 2. При необходимости можно изменить *USER, PORT, HOST* в модуле *GuiMoD/src/httpRequests.jl*:
 ``` julia
 const USER = "Your username"
